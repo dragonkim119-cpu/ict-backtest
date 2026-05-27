@@ -1,0 +1,38 @@
+# ── Python / Backend ──────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+.env
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# ── Data files (large, generated) ─────────────────────────────
+backend/data/candles/
+backend/data/*.parquet
+backend/data/*.db
+backend/data/*.sqlite
+
+# ── Node / Frontend ────────────────────────────────────────────
+node_modules/
+.next/
+out/
+.env.local
+.env*.local
+frontend/.env
+backend/.venv/
+
+# ── Playwright temp scripts & screenshots ─────────────────────
+frontend/pw_*.cjs
+*.png
+
+# ── bkit plugin state ──────────────────────────────────────────
+.bkit/
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
