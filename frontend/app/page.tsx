@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { fetchCandles, fetchPatterns, runBacktest, triggerIngest } from '@/lib/api';
 import type {
@@ -15,6 +15,7 @@ import type {
   Sweep,
   Trade,
 } from '@/lib/types';
+import { useKlineStream } from '@/lib/ws';
 
 import MetricsPanel from '@/components/backtest/MetricsPanel';
 import TradesTable from '@/components/backtest/TradesTable';
@@ -22,6 +23,20 @@ import TradesTable from '@/components/backtest/TradesTable';
 const CandleChart = dynamic(() => import('@/components/chart/CandleChart'), { ssr: false });
 
 const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'];
+
+const WS_STATUS_STYLE: Record<string, string> = {
+  connected: 'text-green-400',
+  connecting: 'text-yellow-400',
+  error: 'text-red-400',
+  disconnected: 'text-gray-500',
+};
+
+const WS_STATUS_LABEL: Record<string, string> = {
+  connected: '● LIVE',
+  connecting: '◌ connecting…',
+  error: '✕ WS error',
+  disconnected: '',
+};
 
 interface Visibility {
   fvg: boolean;
@@ -72,7 +87,47 @@ export default function DashboardPage() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [stats, setStats] = useState('');
+  const [liveMode, setLiveMode] = useState(false);
 
+  // ── Live WebSocket stream ──────────────────────────────────────
+  const { status: wsStatus, liveCandle } = useKlineStream(symbol, interval, liveMode);
+
+  // Merge live candle into candles array
+  useEffect(() => {
+    if (!liveCandle) return;
+    setCandles((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      const liveTime = liveCandle.open_time;
+      if (last.open_time === liveTime) {
+        // Update current candle in-place
+        const updated = [...prev];
+        updated[updated.length - 1] = {
+          open_time: liveCandle.open_time,
+          open: liveCandle.open,
+          high: liveCandle.high,
+          low: liveCandle.low,
+          close: liveCandle.close,
+          volume: liveCandle.volume,
+        };
+        return updated;
+      }
+      // New candle opened
+      return [
+        ...prev,
+        {
+          open_time: liveCandle.open_time,
+          open: liveCandle.open,
+          high: liveCandle.high,
+          low: liveCandle.low,
+          close: liveCandle.close,
+          volume: liveCandle.volume,
+        },
+      ];
+    });
+  }, [liveCandle]);
+
+  // ── Handlers ──────────────────────────────────────────────────
   const handleLoad = async () => {
     setStatus('loading');
     setErrorMsg('');
@@ -204,6 +259,24 @@ export default function DashboardPage() {
         >
           Ingest Data
         </button>
+
+        {/* Live toggle */}
+        <button
+          onClick={() => setLiveMode((v) => !v)}
+          className={`px-4 py-1.5 rounded text-sm font-semibold transition-colors border ${
+            liveMode
+              ? 'bg-green-700 hover:bg-green-600 text-white border-green-500'
+              : 'bg-transparent text-gray-400 border-[#2a2e39] hover:border-green-700 hover:text-green-400'
+          }`}
+        >
+          {liveMode ? '⬤ Live' : '○ Live'}
+        </button>
+
+        {liveMode && wsStatus !== 'disconnected' && (
+          <span className={`text-xs font-mono ${WS_STATUS_STYLE[wsStatus] ?? ''}`}>
+            {WS_STATUS_LABEL[wsStatus]}
+          </span>
+        )}
 
         <label className="flex items-center gap-1.5 cursor-pointer select-none">
           <input
