@@ -3,10 +3,11 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
-import { fetchCandles, fetchPatterns, runBacktest, triggerIngest } from '@/lib/api';
+import { fetchCandles, fetchChecklist, fetchPatterns, runBacktest, triggerIngest } from '@/lib/api';
 import type {
   BPR,
   Candle,
+  ChecklistResult,
   FVG,
   IFVG,
   KillZoneSpan,
@@ -18,6 +19,7 @@ import type {
 } from '@/lib/types';
 import { useKlineStream } from '@/lib/ws';
 
+import ChecklistPanel from '@/components/backtest/ChecklistPanel';
 import MetricsPanel from '@/components/backtest/MetricsPanel';
 import TradesTable from '@/components/backtest/TradesTable';
 
@@ -90,6 +92,7 @@ export default function DashboardPage() {
   const [requireSweep, setRequireSweep] = useState(false);
   const [htfInterval, setHtfInterval] = useState('');
   const [htfBprs, setHtfBprs] = useState<BPR[]>([]);
+  const [checklist, setChecklist] = useState<ChecklistResult | null>(null);
 
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -144,7 +147,11 @@ export default function DashboardPage() {
     setLiquidities(patternUpdate.liquidities);
     setKillzones(patternUpdate.killzones);
     setPo3s(patternUpdate.po3s);
-  }, [patternUpdate]);
+    // Auto-refresh checklist on each closed candle in live mode
+    fetchChecklist(symbol, interval, htfInterval || '1h')
+      .then(setChecklist)
+      .catch(() => undefined);
+  }, [patternUpdate, symbol, interval, htfInterval]);
 
   // ── Handlers ──────────────────────────────────────────────────
   const handleLoad = async () => {
@@ -219,6 +226,19 @@ export default function DashboardPage() {
     }
   };
 
+  const handleChecklist = async () => {
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const result = await fetchChecklist(symbol, interval, htfInterval || '1h');
+      setChecklist(result);
+      setStatus('idle');
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : String(e));
+      setStatus('error');
+    }
+  };
+
   const toggleVisibility = (key: keyof Visibility) => {
     setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -279,6 +299,13 @@ export default function DashboardPage() {
           className="px-4 py-1.5 rounded bg-[#2a2e39] hover:bg-[#363c4e] disabled:opacity-50 text-gray-300 text-sm transition-colors"
         >
           Ingest Data
+        </button>
+        <button
+          onClick={handleChecklist}
+          disabled={status === 'loading'}
+          className="px-4 py-1.5 rounded bg-[#1e2a3a] hover:bg-[#243347] disabled:opacity-50 text-cyan-400 text-sm font-semibold border border-cyan-800 transition-colors"
+        >
+          Checklist
         </button>
 
         {/* Live toggle */}
@@ -371,6 +398,13 @@ export default function DashboardPage() {
         trades={btTrades}
         liveMode={liveMode}
       />
+
+      {/* Checklist */}
+      {checklist && (
+        <div className="mt-4">
+          <ChecklistPanel result={checklist} />
+        </div>
+      )}
 
       {/* Backtest results */}
       {btMetrics && (

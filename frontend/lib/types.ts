@@ -116,6 +116,23 @@ export type PO3 = {
   distrib_end_time: string | null;
 };
 
+export type CheckItem = {
+  id: number;
+  label: string;
+  passed: boolean;
+  detail: string;
+};
+
+export type ChecklistResult = {
+  symbol: string;
+  interval: string;
+  htf_interval: string;
+  evaluated_at: string;
+  price: number;
+  checks: CheckItem[];
+  score: number;
+};
+
 export type BacktestResponse = {
   run_id: string;
   symbol: string;

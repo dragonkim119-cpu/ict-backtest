@@ -1,4 +1,4 @@
-import type { BacktestResponse, CandlesResponse, PatternsResponse } from './types';
+import type { BacktestResponse, CandlesResponse, ChecklistResult, PatternsResponse } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -53,6 +53,18 @@ export async function runBacktest(
       htf_interval: htfInterval || undefined,
     })}`,
     { method: 'POST' },
+  );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchChecklist(
+  symbol: string,
+  interval: string,
+  htfInterval: string = '1h',
+): Promise<ChecklistResult> {
+  const res = await fetch(
+    `${BASE}/api/checklist${qs({ symbol, interval, htf_interval: htfInterval })}`,
   );
   if (!res.ok) throw new Error(await res.text());
   return res.json();
