@@ -44,6 +44,7 @@ interface Props {
   killzones: KillZoneSpan[];
   visibility: Visibility;
   trades?: Trade[];
+  liveMode?: boolean;
 }
 
 type AnyPrimitive = BoxesPrimitive | KillZonePrimitive;
@@ -58,6 +59,7 @@ export default function CandleChart({
   killzones,
   visibility,
   trades,
+  liveMode,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -65,6 +67,10 @@ export default function CandleChart({
   const primitivesRef = useRef<AnyPrimitive[]>([]);
   const priceLinesRef = useRef<IPriceLine[]>([]);
   const markersPluginRef = useRef<ReturnType<typeof createSeriesMarkers<Time>> | null>(null);
+  // Stable ref so overlay effect doesn't re-run on every tick
+  const candlesRef = useRef(candles);
+  candlesRef.current = candles;
+  const prevLengthRef = useRef(0);
 
   // Create chart once
   useEffect(() => {
@@ -111,25 +117,42 @@ export default function CandleChart({
     };
   }, []);
 
-  // Update candle data
+  // Update candle data — use series.update() for live ticks, setData() for full reloads
   useEffect(() => {
     if (!seriesRef.current || candles.length === 0) return;
-    seriesRef.current.setData(
-      candles.map((c) => ({
-        time: toUTC(c.open_time),
-        open: c.open,
-        high: c.high,
-        low: c.low,
-        close: c.close,
-      })),
-    );
-    chartRef.current?.timeScale().fitContent();
-  }, [candles]);
+    const isLiveTick = liveMode && Math.abs(candles.length - prevLengthRef.current) <= 1 && prevLengthRef.current > 0;
+    prevLengthRef.current = candles.length;
 
-  // Update overlays whenever patterns or visibility changes
+    if (isLiveTick) {
+      const last = candles[candles.length - 1];
+      seriesRef.current.update({
+        time: toUTC(last.open_time),
+        open: last.open,
+        high: last.high,
+        low: last.low,
+        close: last.close,
+      });
+      chartRef.current?.timeScale().scrollToRealTime();
+    } else {
+      seriesRef.current.setData(
+        candles.map((c) => ({
+          time: toUTC(c.open_time),
+          open: c.open,
+          high: c.high,
+          low: c.low,
+          close: c.close,
+        })),
+      );
+      chartRef.current?.timeScale().fitContent();
+    }
+  }, [candles, liveMode]);
+
+  // Update overlays when patterns or visibility changes (NOT on every candle tick)
+  // candlesRef is used instead of candles to avoid re-running on live ticks.
   useEffect(() => {
     const chart = chartRef.current;
     const series = seriesRef.current;
+    const candles = candlesRef.current;
     if (!chart || !series || candles.length === 0) return;
 
     // Remove old overlays
@@ -165,15 +188,14 @@ export default function CandleChart({
       }
     }
 
-    // FVG boxes
+    // FVG boxes — use created_time as start (works for both historical and live pattern updates)
     if (visibility.fvg) {
       attachBoxes(
         fvgs.map((f) => {
-          const startCandle = candles[f.start_index] ?? candles[0];
           const endTime =
             f.mitigated && f.mitigated_time ? toUTC(f.mitigated_time) : lastTime;
           return {
-            time1: toUTC(startCandle.open_time),
+            time1: toUTC(f.created_time),
             time2: endTime,
             price1: f.bottom,
             price2: f.top,
@@ -184,7 +206,7 @@ export default function CandleChart({
       );
     }
 
-    // IFVG boxes (same time range logic, dimmer color)
+    // IFVG boxes
     if (visibility.ifvg) {
       attachBoxes(
         ifvgs.map((f) => ({
@@ -269,7 +291,8 @@ export default function CandleChart({
       allMarkers.sort((a, b) => (a.time as number) - (b.time as number));
       markersPluginRef.current = createSeriesMarkers<Time>(series, allMarkers);
     }
-  }, [candles, fvgs, ifvgs, bprs, liquidities, sweeps, killzones, visibility, trades]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fvgs, ifvgs, bprs, liquidities, sweeps, killzones, visibility, trades]);
 
   return (
     <div

@@ -90,7 +90,7 @@ export default function DashboardPage() {
   const [liveMode, setLiveMode] = useState(false);
 
   // ── Live WebSocket stream ──────────────────────────────────────
-  const { status: wsStatus, liveCandle } = useKlineStream(symbol, interval, liveMode);
+  const { status: wsStatus, liveCandle, patternUpdate } = useKlineStream(symbol, interval, liveMode);
 
   // Merge live candle into candles array
   useEffect(() => {
@@ -126,6 +126,17 @@ export default function DashboardPage() {
       ];
     });
   }, [liveCandle]);
+
+  // Apply live pattern update (fires once per closed candle)
+  useEffect(() => {
+    if (!patternUpdate) return;
+    setFvgs(patternUpdate.fvgs);
+    setIfvgs(patternUpdate.ifvgs);
+    setBprs(patternUpdate.bprs);
+    setSweeps(patternUpdate.sweeps);
+    setLiquidities(patternUpdate.liquidities);
+    setKillzones(patternUpdate.killzones);
+  }, [patternUpdate]);
 
   // ── Handlers ──────────────────────────────────────────────────
   const handleLoad = async () => {
@@ -332,6 +343,7 @@ export default function DashboardPage() {
         killzones={killzones}
         visibility={visibility}
         trades={btTrades}
+        liveMode={liveMode}
       />
 
       {/* Backtest results */}

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { Candle } from './types';
+import type { BPR, Candle, FVG, IFVG, KillZoneSpan, LiquidityPool, Sweep } from './types';
 
 const WS_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000')
   .replace(/^http/, 'ws');
@@ -13,6 +13,17 @@ export interface LiveCandle extends Candle {
   closed: boolean;
 }
 
+export interface PatternUpdate {
+  symbol: string;
+  interval: string;
+  fvgs: FVG[];
+  ifvgs: IFVG[];
+  bprs: BPR[];
+  sweeps: Sweep[];
+  liquidities: LiquidityPool[];
+  killzones: KillZoneSpan[];
+}
+
 export function useKlineStream(
   symbol: string,
   interval: string,
@@ -20,6 +31,7 @@ export function useKlineStream(
 ) {
   const [status, setStatus] = useState<WsStatus>('disconnected');
   const [liveCandle, setLiveCandle] = useState<LiveCandle | null>(null);
+  const [patternUpdate, setPatternUpdate] = useState<PatternUpdate | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const enabledRef = useRef(enabled);
@@ -41,6 +53,8 @@ export function useKlineStream(
         const msg = JSON.parse(e.data as string);
         if (msg.type === 'kline') {
           setLiveCandle({ ...msg.candle, closed: msg.candle.closed });
+        } else if (msg.type === 'patterns') {
+          setPatternUpdate(msg as PatternUpdate);
         }
       } catch {
         // ignore malformed messages
@@ -67,6 +81,7 @@ export function useKlineStream(
       wsRef.current = null;
       setStatus('disconnected');
       setLiveCandle(null);
+      setPatternUpdate(null);
     }
 
     return () => {
@@ -75,5 +90,5 @@ export function useKlineStream(
     };
   }, [enabled, connect]);
 
-  return { status, liveCandle };
+  return { status, liveCandle, patternUpdate };
 }

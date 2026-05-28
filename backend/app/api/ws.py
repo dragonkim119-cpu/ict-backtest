@@ -6,6 +6,7 @@ import json
 import pandas as pd
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from app.backtest.live_detector import detect_live_patterns
 from app.data.loader import save_candles
 from app.data.ws_binance import KlineUpdate, stream_klines
 
@@ -52,28 +53,38 @@ async def kline_ws(
     """Stream real-time kline updates to the client.
 
     Query params: symbol (default BTCUSDT), interval (default 1h)
+    On candle close: saves to Parquet and sends updated pattern set.
     """
     await websocket.accept()
     try:
         async for update in stream_klines(symbol, interval):
-            # Forward to frontend
             await websocket.send_text(_update_to_msg(update))
-
-            # Persist closed candle to Parquet (fire-and-forget)
             if update.closed:
-                asyncio.create_task(_save(update))
-
+                asyncio.create_task(_on_close(update, websocket))
     except WebSocketDisconnect:
         pass
     except Exception:
         pass
 
 
-async def _save(update: KlineUpdate) -> None:
+async def _on_close(update: KlineUpdate, websocket: WebSocket) -> None:
+    """Save closed candle to Parquet, then send pattern update via WS."""
     df = _to_df_row(update)
     df["open_time"] = pd.to_datetime(df["open_time"], utc=True)
     df["close_time"] = pd.to_datetime(df["close_time"], utc=True)
     try:
-        save_candles(df, update.symbol, update.interval)
+        await asyncio.to_thread(save_candles, df, update.symbol, update.interval)
+    except Exception:
+        pass
+
+    try:
+        patterns = await asyncio.to_thread(detect_live_patterns, update.symbol, update.interval)
+        msg = json.dumps({
+            "type": "patterns",
+            "symbol": update.symbol,
+            "interval": update.interval,
+            **patterns,
+        })
+        await websocket.send_text(msg)
     except Exception:
         pass
