@@ -216,3 +216,64 @@ def _save_results(
                 ),
             )
         conn.commit()
+
+
+# ── query helpers ──────────────────────────────────────────────────
+
+
+_RUN_COLS = (
+    "run_id", "symbol", "interval", "start_time", "end_time",
+    "params_hash", "params_json", "total_trades", "wins", "losses", "timeouts",
+    "win_rate", "profit_factor", "expectancy", "total_pnl_r",
+    "max_drawdown_r", "max_consecutive_losses", "avg_trade_duration_candles", "created_at",
+)
+
+_TRADE_COLS = (
+    "entry_index", "entry_time", "entry_price", "direction",
+    "sl", "tp", "exit_index", "exit_time", "exit_price", "status", "pnl_r",
+)
+
+
+def _row_to_dict(row: tuple, cols: tuple) -> dict:
+    d = dict(zip(cols, row))
+    # Replace Python inf with a sentinel the JSON encoder can handle
+    for k, v in d.items():
+        if isinstance(v, float) and (v != v or v == float("inf") or v == float("-inf")):
+            d[k] = None
+    return d
+
+
+def list_runs(limit: int = 50) -> list[dict]:
+    db = _db_path()
+    if not db.exists():
+        return []
+    with sqlite3.connect(db) as conn:
+        _ensure_tables(conn)
+        cols_sql = ", ".join(_RUN_COLS)
+        rows = conn.execute(
+            f"SELECT {cols_sql} FROM backtest_runs ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [_row_to_dict(r, _RUN_COLS) for r in rows]
+
+
+def get_run_detail(run_id: str) -> tuple[dict, list[dict]] | None:
+    db = _db_path()
+    if not db.exists():
+        return None
+    with sqlite3.connect(db) as conn:
+        _ensure_tables(conn)
+        run_cols_sql = ", ".join(_RUN_COLS)
+        run_row = conn.execute(
+            f"SELECT {run_cols_sql} FROM backtest_runs WHERE run_id = ?", (run_id,)
+        ).fetchone()
+        if run_row is None:
+            return None
+        trade_cols_sql = ", ".join(_TRADE_COLS)
+        trade_rows = conn.execute(
+            f"SELECT {trade_cols_sql} FROM backtest_trades WHERE run_id = ? ORDER BY entry_index",
+            (run_id,),
+        ).fetchall()
+    run_dict = _row_to_dict(run_row, _RUN_COLS)
+    trades_list = [_row_to_dict(r, _TRADE_COLS) for r in trade_rows]
+    return run_dict, trades_list

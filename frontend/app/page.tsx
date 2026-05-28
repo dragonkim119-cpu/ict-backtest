@@ -3,9 +3,18 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
-import { fetchCandles, fetchChecklist, fetchPatterns, runBacktest, triggerIngest } from '@/lib/api';
+import {
+  fetchCandles,
+  fetchChecklist,
+  fetchPatterns,
+  fetchRunDetail,
+  fetchRuns,
+  runBacktest,
+  triggerIngest,
+} from '@/lib/api';
 import type {
   BPR,
+  BacktestRun,
   Candle,
   ChecklistResult,
   FVG,
@@ -14,6 +23,7 @@ import type {
   LiquidityPool,
   Metrics,
   PO3,
+  StoredTrade,
   Sweep,
   Trade,
 } from '@/lib/types';
@@ -21,6 +31,8 @@ import { useKlineStream } from '@/lib/ws';
 
 import ChecklistPanel from '@/components/backtest/ChecklistPanel';
 import MetricsPanel from '@/components/backtest/MetricsPanel';
+import RunComparison from '@/components/backtest/RunComparison';
+import RunHistory from '@/components/backtest/RunHistory';
 import TradesTable from '@/components/backtest/TradesTable';
 
 const CandleChart = dynamic(() => import('@/components/chart/CandleChart'), { ssr: false });
@@ -93,6 +105,10 @@ export default function DashboardPage() {
   const [htfInterval, setHtfInterval] = useState('');
   const [htfBprs, setHtfBprs] = useState<BPR[]>([]);
   const [checklist, setChecklist] = useState<ChecklistResult | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [runs, setRuns] = useState<BacktestRun[]>([]);
+  const [selectedRunIds, setSelectedRunIds] = useState<string[]>([]);
+  const [comparisonRuns, setComparisonRuns] = useState<[BacktestRun, BacktestRun] | null>(null);
 
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -226,6 +242,68 @@ export default function DashboardPage() {
     }
   };
 
+  const storedToTrade = (st: StoredTrade): Trade => ({
+    entry: {
+      bpr: { type: st.direction === 'long' ? 'bull' : 'bear', top: st.tp, bottom: st.sl,
+             fvg_old_time: st.entry_time, fvg_new_time: st.entry_time,
+             created_time: st.entry_time, created_index: st.entry_index } as BPR,
+      trigger_candle_index: st.entry_index,
+      trigger_candle_time: st.entry_time,
+      entry_index: st.entry_index,
+      entry_time: st.entry_time,
+      entry_price: st.entry_price,
+      direction: st.direction,
+    },
+    sl: st.sl, tp: st.tp,
+    exit_index: st.exit_index, exit_time: st.exit_time, exit_price: st.exit_price,
+    status: st.status, pnl_r: st.pnl_r,
+  });
+
+  const handleLoadHistory = async () => {
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const data = await fetchRuns();
+      setRuns(data);
+      setShowHistory(true);
+      setStatus('idle');
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : String(e));
+      setStatus('error');
+    }
+  };
+
+  const handleSelectRun = (runId: string) => {
+    setSelectedRunIds((prev) => {
+      if (prev.includes(runId)) return prev.filter((id) => id !== runId);
+      if (prev.length >= 2) return [prev[1], runId];
+      return [...prev, runId];
+    });
+    // Update comparison if 2 selected
+    setComparisonRuns(null);
+  };
+
+  const handleViewRun = async (runId: string) => {
+    setStatus('loading');
+    setErrorMsg('');
+    try {
+      const detail = await fetchRunDetail(runId);
+      setBtTrades(detail.trades.map(storedToTrade));
+      setBtMetrics(null); // clear current metrics to signal we're viewing history
+      setStatus('idle');
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : String(e));
+      setStatus('error');
+    }
+  };
+
+  const handleCompare = () => {
+    if (selectedRunIds.length < 2) return;
+    const a = runs.find((r) => r.run_id === selectedRunIds[0]);
+    const b = runs.find((r) => r.run_id === selectedRunIds[1]);
+    if (a && b) setComparisonRuns([a, b]);
+  };
+
   const handleChecklist = async () => {
     setStatus('loading');
     setErrorMsg('');
@@ -292,6 +370,13 @@ export default function DashboardPage() {
           className="px-4 py-1.5 rounded bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white text-sm font-semibold transition-colors"
         >
           Run Backtest
+        </button>
+        <button
+          onClick={handleLoadHistory}
+          disabled={status === 'loading'}
+          className="px-4 py-1.5 rounded bg-[#2a1f3d] hover:bg-[#3a2f55] disabled:opacity-50 text-purple-300 text-sm border border-purple-800 transition-colors"
+        >
+          History
         </button>
         <button
           onClick={handleIngest}
@@ -411,6 +496,31 @@ export default function DashboardPage() {
         <div className="mt-4 flex flex-col gap-3">
           <MetricsPanel metrics={btMetrics} runId={btRunId} />
           <TradesTable trades={btTrades} />
+        </div>
+      )}
+
+      {/* Run history */}
+      {showHistory && (
+        <div className="mt-4 flex flex-col gap-3">
+          {selectedRunIds.length === 2 && (
+            <div className="flex justify-end">
+              <button
+                onClick={handleCompare}
+                className="px-4 py-1.5 rounded bg-purple-700 hover:bg-purple-600 text-white text-sm font-semibold transition-colors"
+              >
+                Compare Selected ({selectedRunIds.length}/2)
+              </button>
+            </div>
+          )}
+          <RunHistory
+            runs={runs}
+            selectedIds={selectedRunIds}
+            onSelect={handleSelectRun}
+            onView={handleViewRun}
+          />
+          {comparisonRuns && (
+            <RunComparison runA={comparisonRuns[0]} runB={comparisonRuns[1]} />
+          )}
         </div>
       )}
 

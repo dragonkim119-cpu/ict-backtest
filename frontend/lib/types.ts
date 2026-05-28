@@ -116,6 +116,47 @@ export type PO3 = {
   distrib_end_time: string | null;
 };
 
+export type StoredTrade = {
+  entry_index: number;
+  entry_time: string;
+  entry_price: number;
+  direction: 'long' | 'short';
+  sl: number;
+  tp: number;
+  exit_index: number;
+  exit_time: string;
+  exit_price: number;
+  status: 'closed_win' | 'closed_loss' | 'closed_timeout';
+  pnl_r: number;
+};
+
+export type BacktestRun = {
+  run_id: string;
+  symbol: string;
+  interval: string;
+  start_time: string | null;
+  end_time: string | null;
+  params_hash: string;
+  params_json: string;
+  total_trades: number;
+  wins: number;
+  losses: number;
+  timeouts: number;
+  win_rate: number;
+  profit_factor: number | null;
+  expectancy: number;
+  total_pnl_r: number;
+  max_drawdown_r: number;
+  max_consecutive_losses: number;
+  avg_trade_duration_candles: number;
+  created_at: string;
+};
+
+export type RunDetailResponse = {
+  run: BacktestRun;
+  trades: StoredTrade[];
+};
+
 export type CheckItem = {
   id: number;
   label: string;

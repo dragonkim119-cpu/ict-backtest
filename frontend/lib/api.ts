@@ -1,4 +1,11 @@
-import type { BacktestResponse, CandlesResponse, ChecklistResult, PatternsResponse } from './types';
+import type {
+  BacktestResponse,
+  BacktestRun,
+  CandlesResponse,
+  ChecklistResult,
+  PatternsResponse,
+  RunDetailResponse,
+} from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
 
@@ -66,6 +73,18 @@ export async function fetchChecklist(
   const res = await fetch(
     `${BASE}/api/checklist${qs({ symbol, interval, htf_interval: htfInterval })}`,
   );
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchRuns(limit = 50): Promise<BacktestRun[]> {
+  const res = await fetch(`${BASE}/api/backtest/runs${qs({ limit: String(limit) })}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchRunDetail(runId: string): Promise<RunDetailResponse> {
+  const res = await fetch(`${BASE}/api/backtest/runs/${encodeURIComponent(runId)}`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
