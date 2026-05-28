@@ -39,7 +39,9 @@ def calc_stop_loss(entry: EntrySignal, swings: list[Swing]) -> float | None:
     return sl
 
 
-def calc_take_profit(entry_price: float, sl: float, direction: str, rr: float = RISK_REWARD_RATIO) -> float:
+def calc_take_profit(
+    entry_price: float, sl: float, direction: str, rr: float = RISK_REWARD_RATIO
+) -> float:
     if direction == "long":
         risk = entry_price - sl
         return entry_price + risk * rr

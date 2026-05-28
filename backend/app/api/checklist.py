@@ -137,7 +137,9 @@ def _check_tp_path_clear(close: float, bprs: list[BPR], swings: list[Swing]) -> 
     nearest = min(swings, key=lambda s: abs(s.price - close))
     sl_dist = abs(close - nearest.price)
     if sl_dist == 0:
-        return CheckItem(id=6, label="TP Path Clear (1:3)", passed=False, detail="SL distance is zero")
+        return CheckItem(
+            id=6, label="TP Path Clear (1:3)", passed=False, detail="SL distance is zero"
+        )
 
     bull = nearest.type == "low"
     rr = 3.0

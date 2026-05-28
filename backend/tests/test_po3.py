@@ -9,8 +9,8 @@ from app.patterns.amd import detect_amd
 from app.patterns.po3 import detect_po3
 
 
-def _candle(ts: str, o: float, h: float, l: float, c: float) -> dict:
-    return {"open_time": ts, "open": o, "high": h, "low": l, "close": c, "volume": 1.0}
+def _candle(ts: str, o: float, h: float, lo: float, c: float) -> dict:
+    return {"open_time": ts, "open": o, "high": h, "low": lo, "close": c, "volume": 1.0}
 
 
 def _build_session(

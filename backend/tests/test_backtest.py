@@ -50,7 +50,9 @@ def _swing(index: int, stype: str, price: float) -> Swing:
     return Swing(index=index, type=stype, price=price, time=_ts(index))
 
 
-def _entry(entry_index: int, entry_price: float, direction: str = "long", bpr_obj: BPR | None = None) -> EntrySignal:
+def _entry(
+    entry_index: int, entry_price: float, direction: str = "long", bpr_obj: BPR | None = None
+) -> EntrySignal:
     bpr_obj = bpr_obj or _bpr(0)
     return EntrySignal(
         bpr=bpr_obj,
@@ -87,7 +89,7 @@ class TestEntrySignal:
         df = _make_df([
             _candle(0, 100, 102, 98, 100),   # BPR created
             _candle(1, 100, 102, 98, 100),   # first trigger
-            _candle(2, 105, 108, 95, 100),   # entry candle; also close=100 inside but already returned
+            _candle(2, 105, 108, 95, 100),   # entry candle; close=100 inside but already returned
             _candle(3, 100, 102, 98, 100),
         ])
         signal = find_entry_signal(bpr, df)
@@ -198,7 +200,9 @@ class TestStopLoss:
 # ─── Metrics ──────────────────────────────────────────────────────────────────
 
 class TestMetrics:
-    def _make_trade(self, status: str, pnl_r: float, entry_idx: int = 0, exit_idx: int = 5) -> Trade:
+    def _make_trade(
+        self, status: str, pnl_r: float, entry_idx: int = 0, exit_idx: int = 5
+    ) -> Trade:
         e = _entry(entry_index=entry_idx + 1, entry_price=100.0)
         return Trade(
             entry=e, sl=98.0, tp=106.0,

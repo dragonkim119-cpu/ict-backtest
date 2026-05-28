@@ -2,10 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-import numpy as np
-import pandas as pd
-import pytest
-
 from app.backtest.mtf_entry import is_within_htf_bpr
 from app.models.patterns import BPR
 

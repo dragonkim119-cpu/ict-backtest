@@ -155,7 +155,9 @@ def run_backtest(
         trades.append(trade)
 
     metrics = compute_metrics(trades)
-    params_hash = _params_hash(symbol, interval, start, end, kill_zone_only, require_sweep, htf_interval)
+    params_hash = _params_hash(
+        symbol, interval, start, end, kill_zone_only, require_sweep, htf_interval
+    )
     run_id = _run_id(params_hash)
 
     _save_results(run_id, symbol, interval, start, end, params_hash, trades, metrics, htf_interval)
@@ -174,7 +176,10 @@ def _save_results(
     htf_interval: str | None = None,
 ) -> None:
     params_json = json.dumps(
-        {"symbol": symbol, "interval": interval, "start": start, "end": end, "htf_interval": htf_interval}
+        {
+            "symbol": symbol, "interval": interval,
+            "start": start, "end": end, "htf_interval": htf_interval,
+        }
     )
     now = datetime.utcnow().isoformat()
 
