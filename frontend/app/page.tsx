@@ -156,13 +156,13 @@ export default function DashboardPage() {
   // Apply live pattern update (fires once per closed candle)
   useEffect(() => {
     if (!patternUpdate) return;
-    setFvgs(patternUpdate.fvgs);
-    setIfvgs(patternUpdate.ifvgs);
-    setBprs(patternUpdate.bprs);
-    setSweeps(patternUpdate.sweeps);
-    setLiquidities(patternUpdate.liquidities);
-    setKillzones(patternUpdate.killzones);
-    setPo3s(patternUpdate.po3s);
+    setFvgs(patternUpdate.fvgs ?? []);
+    setIfvgs(patternUpdate.ifvgs ?? []);
+    setBprs(patternUpdate.bprs ?? []);
+    setSweeps(patternUpdate.sweeps ?? []);
+    setLiquidities(patternUpdate.liquidities ?? []);
+    setKillzones(patternUpdate.killzones ?? []);
+    setPo3s(patternUpdate.po3s ?? []);
     // Auto-refresh checklist on each closed candle in live mode
     fetchChecklist(symbol, interval, htfInterval || '1h')
       .then(setChecklist)
@@ -184,19 +184,20 @@ export default function DashboardPage() {
       ]);
       const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
 
-      setCandles(candleRes.candles);
-      setFvgs(patternRes.fvgs);
-      setIfvgs(patternRes.ifvgs);
-      setBprs(patternRes.bprs);
-      setLiquidities(patternRes.liquidities);
-      setSweeps(patternRes.sweeps);
-      setKillzones(patternRes.killzones);
-      setPo3s(patternRes.po3s);
+      setCandles(candleRes.candles ?? []);
+      setFvgs(patternRes.fvgs ?? []);
+      setIfvgs(patternRes.ifvgs ?? []);
+      setBprs(patternRes.bprs ?? []);
+      setLiquidities(patternRes.liquidities ?? []);
+      setSweeps(patternRes.sweeps ?? []);
+      setKillzones(patternRes.killzones ?? []);
+      setPo3s(patternRes.po3s ?? []);
 
+      const po3Count = (patternRes.po3s ?? []).length;
       setStats(
         `${candleRes.candles.length} candles | ${patternRes.fvgs.length} FVGs | ` +
           `${patternRes.bprs.length} BPRs | ${patternRes.liquidities.length} pools | ` +
-          `${patternRes.sweeps.length} sweeps | ${patternRes.po3s.length} PO3 | ${elapsed}s`,
+          `${patternRes.sweeps.length} sweeps | ${po3Count} PO3 | ${elapsed}s`,
       );
       setStatus('idle');
     } catch (e) {
