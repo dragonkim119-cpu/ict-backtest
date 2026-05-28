@@ -69,3 +69,16 @@ class KillZoneSpan(BaseModel):
     name: Literal["Asia", "London", "NY_AM", "NY_PM"]
     start_time: datetime
     end_time: datetime
+
+
+class PO3(BaseModel):
+    session: Literal["London", "NY_AM"]
+    type: Literal["bull", "bear"]
+    accum_start_time: datetime
+    accum_end_time: datetime
+    accum_high: float
+    accum_low: float
+    manip_time: datetime
+    manip_extreme: float
+    distrib_start_time: datetime
+    distrib_end_time: datetime | None = None

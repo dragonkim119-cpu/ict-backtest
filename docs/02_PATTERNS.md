@@ -379,6 +379,153 @@ def detect_killzones(candles: pd.DataFrame) -> list[KillZoneSpan]:
 
 ---
 
+## 8. PO3 / AMD (Power of 3 / Accumulation-Manipulation-Distribution)
+
+### 정의
+ICT Power of 3: 각 주요 세션은 3단계로 전개됨.
+- **Accumulation (A)**: 세션 직전 좁은 레인지 구간. 스마트머니 포지션 진입.
+- **Manipulation (M)**: 세션 시작 직후 레인지 상단(BSL) 또는 하단(SSL) wick 돌파 후 되돌아옴 → 리테일 트래핑.
+- **Distribution (D)**: Sweep 반대 방향으로 ATR 이상의 추세 전개.
+
+AMD는 PO3와 동일한 사이클이나 Accumulation ATR 요건 없이 세션 내 어느 방향으로든 첫 번째 sweep을 탐지.
+
+### 적용 세션
+| 세션 | UTC 시작 | UTC 종료 |
+|---|---|---|
+| London | 02:00 | 05:00 |
+| NY_AM | 13:30 | 16:00 |
+
+### 파라미터
+```python
+PO3_ACCUM_LOOKBACK    = 6      # 세션 시작 전 몇 캔들을 Accumulation으로 볼 것인지
+PO3_ACCUM_ATR_THRESH  = 0.5   # Accumulation 레인지가 ATR(14) × 0.5 이하여야 유효 (PO3만 적용)
+PO3_MANIP_WINDOW      = 6      # 세션 시작 후 이 캔들 수 이내에 Manipulation sweep 발생해야 함
+PO3_DISTRIB_WINDOW    = 12     # Manipulation 이후 Distribution 확인 윈도우 (캔들 수)
+PO3_DISTRIB_ATR_MIN   = 0.8    # Distribution 이동 폭이 ATR × 0.8 이상이어야 유효
+```
+
+### 의사 코드
+```python
+SESSION_CONFIG = {
+    "London": (2, 0, 5, 0),    # (start_hour, start_min, end_hour, end_min) UTC
+    "NY_AM":  (13, 30, 16, 0),
+}
+
+@dataclass
+class PO3:
+    session:          Literal["London", "NY_AM"]
+    type:             Literal["bull", "bear"]   # bull=SSL sweep→상승, bear=BSL sweep→하락
+    accum_start_time: datetime
+    accum_end_time:   datetime
+    accum_high:       float
+    accum_low:        float
+    manip_time:       datetime
+    manip_extreme:    float   # bull=sweep 저점, bear=sweep 고점
+    distrib_start_time: datetime
+    distrib_end_time:   datetime | None   # None = 미확인
+
+def _session_start_indices(times, start_hour, start_min) -> list[int]:
+    """각 세션 시작에 해당하는 위치 인덱스 반환."""
+    target = start_hour * 60 + start_min
+    mins = times.dt.hour * 60 + times.dt.minute
+    result = []
+    for i in range(1, len(times)):
+        prev = int(mins.iloc[i-1])
+        curr = int(mins.iloc[i])
+        same_day = times.iloc[i].date() == times.iloc[i-1].date()
+        if same_day and prev < target <= curr:
+            result.append(i)
+        elif not same_day and curr >= target:
+            result.append(i)
+    return result
+
+def detect_po3(
+    candles: pd.DataFrame,
+    atr: pd.Series,
+    session: Literal["London", "NY_AM"],
+    accum_lookback: int = PO3_ACCUM_LOOKBACK,
+    accum_atr_threshold: float | None = PO3_ACCUM_ATR_THRESH,   # None = AMD 모드
+    manip_window: int = PO3_MANIP_WINDOW,
+    distrib_window: int = PO3_DISTRIB_WINDOW,
+    distrib_atr_min: float = PO3_DISTRIB_ATR_MIN,
+) -> list[PO3]:
+    sh, sm, _, _ = SESSION_CONFIG[session]
+    sess_starts = _session_start_indices(candles["open_time"], sh, sm)
+
+    results = []
+    for sess_i in sess_starts:
+        if sess_i < accum_lookback:
+            continue
+
+        # 1. Accumulation
+        accum = candles.iloc[sess_i - accum_lookback : sess_i]
+        accum_high = float(accum["high"].max())
+        accum_low  = float(accum["low"].min())
+        atr_val    = float(atr.iloc[sess_i])
+
+        if accum_atr_threshold is not None:
+            if (accum_high - accum_low) > atr_val * accum_atr_threshold:
+                continue  # 레인지가 너무 넓음
+
+        # 2. Manipulation (세션 시작 후 manip_window 캔들 이내)
+        manip_end = min(sess_i + manip_window, len(candles))
+        manip_i = None
+        po3_type = None
+        for j in range(sess_i, manip_end):
+            c = candles.iloc[j]
+            if c["high"] > accum_high and c["close"] < accum_high:  # BSL sweep → bear
+                manip_i, po3_type = j, "bear"; break
+            if c["low"] < accum_low and c["close"] > accum_low:   # SSL sweep → bull
+                manip_i, po3_type = j, "bull"; break
+        if manip_i is None:
+            continue
+
+        # 3. Distribution (manip 이후 distrib_window 캔들 이내에 ATR 이상 이동)
+        dist_start = manip_i + 1
+        dist_end   = min(dist_start + distrib_window, len(candles))
+        mc = candles.iloc[manip_i]
+        distrib_end_time = None
+        for j in range(dist_start, dist_end):
+            c = candles.iloc[j]
+            move = (c["high"] - mc["low"]) if po3_type == "bull" else (mc["high"] - c["low"])
+            if move >= atr_val * distrib_atr_min:
+                distrib_end_time = c["open_time"]
+                break
+        if distrib_end_time is None:
+            continue
+
+        results.append(PO3(
+            session=session,
+            type=po3_type,
+            accum_start_time=accum.iloc[0]["open_time"],
+            accum_end_time=accum.iloc[-1]["open_time"],
+            accum_high=accum_high,
+            accum_low=accum_low,
+            manip_time=mc["open_time"],
+            manip_extreme=float(mc["low"]) if po3_type == "bull" else float(mc["high"]),
+            distrib_start_time=candles.iloc[dist_start]["open_time"],
+            distrib_end_time=distrib_end_time,
+        ))
+    return results
+```
+
+AMD = `detect_po3(..., accum_atr_threshold=None)` — Accumulation ATR 요건 없이 동일 알고리즘 실행.
+
+### 시각화
+- Accumulation 구간: 밝은 회색 박스
+- Manipulation 캔들: 오렌지 ▲/▼ 마커
+- Distribution 구간: 녹색(bull)/빨간(bear) 박스
+
+### 단위 테스트 케이스
+| 케이스 | 기대 결과 |
+|---|---|
+| 좁은 레인지 + BSL sweep + 하락 이동 | PO3 bear 1개 검출 |
+| 넓은 레인지 (ATR 초과) | PO3 0개 (AMD는 검출) |
+| Sweep 없는 세션 | 0개 |
+| Distribution 이동 부족 | 0개 |
+
+---
+
 ## 파라미터 요약 (한 곳에 모음)
 
 ```python
@@ -390,6 +537,11 @@ LIQUIDITY_MIN_COUNT = 2
 BPR_MAX_AGE_CANDLES = 100
 BPR_MIN_OVERLAP_RATIO = 0.3
 ATR_PERIOD = 14
+PO3_ACCUM_LOOKBACK   = 6
+PO3_ACCUM_ATR_THRESH = 0.5
+PO3_MANIP_WINDOW     = 6
+PO3_DISTRIB_WINDOW   = 12
+PO3_DISTRIB_ATR_MIN  = 0.8
 ```
 
 **모든 파라미터는 추후 UI에서 조정 가능하도록 API로 노출 (Phase 1 후반).**

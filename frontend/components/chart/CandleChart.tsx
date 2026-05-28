@@ -23,7 +23,7 @@ import {
   type Box,
   type KillZone,
 } from '@/lib/chart-primitives';
-import type { BPR, Candle, FVG, IFVG, KillZoneSpan, LiquidityPool, Sweep, Trade } from '@/lib/types';
+import type { BPR, Candle, FVG, IFVG, KillZoneSpan, LiquidityPool, PO3, Sweep, Trade } from '@/lib/types';
 
 interface Visibility {
   fvg: boolean;
@@ -32,6 +32,7 @@ interface Visibility {
   liquidity: boolean;
   sweeps: boolean;
   killzones: boolean;
+  po3: boolean;
 }
 
 interface Props {
@@ -42,6 +43,7 @@ interface Props {
   liquidities: LiquidityPool[];
   sweeps: Sweep[];
   killzones: KillZoneSpan[];
+  po3s: PO3[];
   visibility: Visibility;
   trades?: Trade[];
   liveMode?: boolean;
@@ -57,6 +59,7 @@ export default function CandleChart({
   liquidities,
   sweeps,
   killzones,
+  po3s,
   visibility,
   trades,
   liveMode,
@@ -188,6 +191,36 @@ export default function CandleChart({
       }
     }
 
+    // PO3 / AMD phases (boxes only — markers added after allMarkers is declared below)
+    if (visibility.po3 && po3s.length > 0) {
+      const accumBoxes: Box[] = [];
+      const distribBoxes: Box[] = [];
+
+      for (const p of po3s) {
+        const isBull = p.type === 'bull';
+        accumBoxes.push({
+          time1: toUTC(p.accum_start_time),
+          time2: toUTC(p.accum_end_time),
+          price1: p.accum_low,
+          price2: p.accum_high,
+          fillColor: 'rgba(156,163,175,0.12)',
+          borderColor: 'rgba(156,163,175,0.5)',
+        });
+        const distribEnd = p.distrib_end_time ? toUTC(p.distrib_end_time) : lastTime;
+        distribBoxes.push({
+          time1: toUTC(p.distrib_start_time),
+          time2: distribEnd,
+          price1: isBull ? p.accum_low : p.accum_high - (p.accum_high - p.accum_low) * 3,
+          price2: isBull ? p.accum_high + (p.accum_high - p.accum_low) * 3 : p.accum_high,
+          fillColor: isBull ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+          borderColor: isBull ? 'rgba(34,197,94,0.4)' : 'rgba(239,68,68,0.4)',
+        });
+      }
+
+      attachBoxes(accumBoxes);
+      attachBoxes(distribBoxes);
+    }
+
     // FVG boxes — use created_time as start (works for both historical and live pattern updates)
     if (visibility.fvg) {
       attachBoxes(
@@ -249,8 +282,22 @@ export default function CandleChart({
       });
     }
 
-    // Sweep markers + trade entry/exit markers (combined into one plugin)
+    // Sweep markers + trade entry/exit markers + PO3 manipulation markers (combined)
     const allMarkers: Parameters<typeof createSeriesMarkers<Time>>[1] = [];
+
+    // PO3 manipulation candle markers (orange)
+    if (visibility.po3) {
+      for (const p of po3s) {
+        allMarkers.push({
+          time: toUTC(p.manip_time),
+          position: p.type === 'bull' ? ('belowBar' as const) : ('aboveBar' as const),
+          color: '#f97316',
+          shape: p.type === 'bull' ? ('arrowUp' as const) : ('arrowDown' as const),
+          size: 2 as const,
+          text: `M(${p.session === 'London' ? 'L' : 'N'})`,
+        });
+      }
+    }
 
     if (visibility.sweeps) {
       for (const s of sweeps) {
@@ -292,7 +339,7 @@ export default function CandleChart({
       markersPluginRef.current = createSeriesMarkers<Time>(series, allMarkers);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fvgs, ifvgs, bprs, liquidities, sweeps, killzones, visibility, trades]);
+  }, [fvgs, ifvgs, bprs, liquidities, sweeps, killzones, po3s, visibility, trades]);
 
   return (
     <div

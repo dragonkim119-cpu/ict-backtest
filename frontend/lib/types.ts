@@ -103,6 +103,19 @@ export type Metrics = {
   avg_trade_duration_candles: number;
 };
 
+export type PO3 = {
+  session: 'London' | 'NY_AM';
+  type: 'bull' | 'bear';
+  accum_start_time: string;
+  accum_end_time: string;
+  accum_high: number;
+  accum_low: number;
+  manip_time: string;
+  manip_extreme: number;
+  distrib_start_time: string;
+  distrib_end_time: string | null;
+};
+
 export type BacktestResponse = {
   run_id: string;
   symbol: string;
@@ -127,4 +140,5 @@ export type PatternsResponse = {
   liquidities: LiquidityPool[];
   sweeps: Sweep[];
   killzones: KillZoneSpan[];
+  po3s: PO3[];
 };

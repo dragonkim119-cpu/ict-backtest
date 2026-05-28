@@ -10,6 +10,7 @@ from app.models.patterns import (
     BPR,
     FVG,
     IFVG,
+    PO3,
     KillZoneSpan,
     LiquidityPool,
     Sweep,
@@ -30,6 +31,7 @@ class PatternsResponse(BaseModel):
     liquidities: list[LiquidityPool]
     sweeps: list[Sweep]
     killzones: list[KillZoneSpan]
+    po3s: list[PO3]
 
 
 @router.get("/patterns", response_model=PatternsResponse)
@@ -62,4 +64,5 @@ def get_patterns(
         liquidities=result.liquidity_pools,
         sweeps=result.sweeps,
         killzones=result.killzones,
+        po3s=result.po3s,
     )

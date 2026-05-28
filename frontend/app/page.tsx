@@ -12,6 +12,7 @@ import type {
   KillZoneSpan,
   LiquidityPool,
   Metrics,
+  PO3,
   Sweep,
   Trade,
 } from '@/lib/types';
@@ -45,6 +46,7 @@ interface Visibility {
   liquidity: boolean;
   sweeps: boolean;
   killzones: boolean;
+  po3: boolean;
 }
 
 const VISIBILITY_LABELS: { key: keyof Visibility; label: string; color: string }[] = [
@@ -54,6 +56,7 @@ const VISIBILITY_LABELS: { key: keyof Visibility; label: string; color: string }
   { key: 'liquidity', label: 'Liquidity', color: '#6b7280' },
   { key: 'sweeps', label: 'Sweeps', color: '#ec4899' },
   { key: 'killzones', label: 'Kill Zones', color: '#374151' },
+  { key: 'po3', label: 'PO3/AMD', color: '#8b5cf6' },
 ];
 
 export default function DashboardPage() {
@@ -68,6 +71,7 @@ export default function DashboardPage() {
     liquidity: true,
     sweeps: true,
     killzones: true,
+    po3: true,
   });
 
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -77,6 +81,7 @@ export default function DashboardPage() {
   const [liquidities, setLiquidities] = useState<LiquidityPool[]>([]);
   const [sweeps, setSweeps] = useState<Sweep[]>([]);
   const [killzones, setKillzones] = useState<KillZoneSpan[]>([]);
+  const [po3s, setPo3s] = useState<PO3[]>([]);
 
   const [btMetrics, setBtMetrics] = useState<Metrics | null>(null);
   const [btTrades, setBtTrades] = useState<Trade[]>([]);
@@ -136,6 +141,7 @@ export default function DashboardPage() {
     setSweeps(patternUpdate.sweeps);
     setLiquidities(patternUpdate.liquidities);
     setKillzones(patternUpdate.killzones);
+    setPo3s(patternUpdate.po3s);
   }, [patternUpdate]);
 
   // ── Handlers ──────────────────────────────────────────────────
@@ -160,11 +166,12 @@ export default function DashboardPage() {
       setLiquidities(patternRes.liquidities);
       setSweeps(patternRes.sweeps);
       setKillzones(patternRes.killzones);
+      setPo3s(patternRes.po3s);
 
       setStats(
         `${candleRes.candles.length} candles | ${patternRes.fvgs.length} FVGs | ` +
           `${patternRes.bprs.length} BPRs | ${patternRes.liquidities.length} pools | ` +
-          `${patternRes.sweeps.length} sweeps | ${elapsed}s`,
+          `${patternRes.sweeps.length} sweeps | ${patternRes.po3s.length} PO3 | ${elapsed}s`,
       );
       setStatus('idle');
     } catch (e) {
@@ -341,6 +348,7 @@ export default function DashboardPage() {
         liquidities={liquidities}
         sweeps={sweeps}
         killzones={killzones}
+        po3s={po3s}
         visibility={visibility}
         trades={btTrades}
         liveMode={liveMode}

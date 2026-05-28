@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { BPR, Candle, FVG, IFVG, KillZoneSpan, LiquidityPool, Sweep } from './types';
+import type { BPR, Candle, FVG, IFVG, KillZoneSpan, LiquidityPool, PO3, Sweep } from './types';
 
 const WS_BASE = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000')
   .replace(/^http/, 'ws');
@@ -22,6 +22,7 @@ export interface PatternUpdate {
   sweeps: Sweep[];
   liquidities: LiquidityPool[];
   killzones: KillZoneSpan[];
+  po3s: PO3[];
 }
 
 export function useKlineStream(

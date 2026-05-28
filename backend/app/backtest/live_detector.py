@@ -28,6 +28,7 @@ def _empty() -> dict:
         "sweeps": [],
         "liquidities": [],
         "killzones": [],
+        "po3s": [],
     }
 
 
@@ -58,4 +59,5 @@ def detect_live_patterns(symbol: str, interval: str) -> dict:
         "sweeps": _list(result.sweeps),
         "liquidities": _list(result.liquidity_pools),
         "killzones": _list(result.killzones),
+        "po3s": _list(result.po3s),
     }
