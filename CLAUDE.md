@@ -11,7 +11,7 @@
 
 ## 현재 단계
 
-**Phase 1 Week 5 진행 중** (2026-05-27 기준) — 백테스트 엔진 구현 완료, Week 6 (결과 UI) 남음.
+**Phase 1 완료** (2026-05-28 기준) — 전체 6 Week 구현 및 검증 완료.
 
 ### Week별 완료 현황
 
@@ -22,7 +22,7 @@
 | 3 | Liquidity Pool / Sweep / BPR / Kill Zone 검출 | ✅ 완료 |
 | 4 | FastAPI 엔드포인트 + Next.js 차트 + 패턴 오버레이 | ✅ 완료 |
 | 5 | 백테스트 엔진 (BPR 진입 룰 + SQLite 저장) | ✅ 완료 |
-| 6 | 백테스트 결과 UI (MetricsPanel + TradesTable 마무리) | 🔄 진행 중 |
+| 6 | 백테스트 결과 UI (MetricsPanel + TradesTable 마무리) | ✅ 완료 |
 
 ### 구현 완료 파일 목록
 
@@ -76,12 +76,19 @@
 - **Timezone**: `load_candles`의 `_to_utc()` 헬퍼 — `ts.tzinfo is None`이면 `tz_localize`, 아니면 `tz_convert`
 - **SQLite DB 경로**: `DATA_DIR` 환경변수 (기본 `./data/backtest.db`)
 
-### 남은 작업 (Week 6)
+### Week 6 완료 내역
 
-- [ ] 백테스트 결과 UI TypeScript 타입 체크 통과 확인
-- [ ] 차트에 진입/청산 마커 표시 (Trade 목록 → createSeriesMarkers)
-- [ ] 백테스트 파라미터 UI (필터 옵션: kill_zone_only, require_sweep)
-- [ ] Phase 1 완료 조건 최종 검증
+- [x] 백테스트 결과 UI TypeScript 타입 체크 통과 (에러 0)
+- [x] 차트 진입/청산 마커 (파란 ▲ 진입, 컬러 ● 청산 — `createSeriesMarkers`)
+- [x] 백테스트 필터 UI (`kill_zone_only`, `require_sweep` 체크박스)
+- [x] Phase 1 완료 조건 최종 검증 통과
+
+### 추가 기술 결정 사항 (Week 6)
+
+- **백테스트 필터**: `kill_zone_only` — 진입 시점이 Kill Zone 내인지 체크 / `require_sweep` — BPR 생성 전 50캔들 이내 Sweep 존재 여부
+- **필터 파라미터 해시 포함**: `_params_hash`에 필터값 포함 → 필터 조합별 고유 `run_id` 보장
+- **CORS**: `allow_origins`에 `localhost:3000` + `localhost:3001` 모두 등록
+- **서버 실행**: `start.bat` 더블클릭으로 백엔드(8000) + 프론트(3001) 동시 기동
 
 **실시간/알림 기능은 구현하지 마세요**. Phase 2/3 작업입니다.
 
@@ -173,11 +180,11 @@ ict-backtest/
 
 ## 검증 기준 (Phase 1 완료 조건)
 
-- [ ] BTCUSDT 1년치 1m/5m/15m/1h/4h 캔들 Parquet 저장 가능
-- [ ] FVG/IFVG/Swing/Liquidity Pool/Sweep/BPR/Kill Zone 자동 검출
-- [ ] 검출된 패턴이 차트에 오버레이로 정확히 표시
-- [ ] 임의 과거 구간에 대해 BPR 룰 백테스트 실행 → 승률, RR, MDD 산출
-- [ ] 동일 입력 → 동일 백테스트 결과 (재현성)
+- [x] BTCUSDT 1년치 1m/5m/15m/1h/4h 캔들 Parquet 저장 가능
+- [x] FVG/IFVG/Swing/Liquidity Pool/Sweep/BPR/Kill Zone 자동 검출
+- [x] 검출된 패턴이 차트에 오버레이로 정확히 표시
+- [x] 임의 과거 구간에 대해 BPR 룰 백테스트 실행 → 승률, RR, MDD 산출
+- [x] 동일 입력 → 동일 백테스트 결과 (재현성)
 
 ## 막혔을 때
 
