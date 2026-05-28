@@ -88,6 +88,8 @@ export default function DashboardPage() {
   const [btRunId, setBtRunId] = useState('');
   const [killZoneOnly, setKillZoneOnly] = useState(false);
   const [requireSweep, setRequireSweep] = useState(false);
+  const [htfInterval, setHtfInterval] = useState('');
+  const [htfBprs, setHtfBprs] = useState<BPR[]>([]);
 
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -186,10 +188,11 @@ export default function DashboardPage() {
     try {
       const start = startDate ? `${startDate}T00:00:00Z` : undefined;
       const end = endDate ? `${endDate}T23:59:59Z` : undefined;
-      const result = await runBacktest(symbol, interval, start, end, killZoneOnly, requireSweep);
+      const result = await runBacktest(symbol, interval, start, end, killZoneOnly, requireSweep, htfInterval || undefined);
       setBtMetrics(result.metrics);
       setBtTrades(result.trades);
       setBtRunId(result.run_id);
+      setHtfBprs(result.htf_bprs ?? []);
       setStats(
         `Backtest: ${result.metrics.total_trades} trades | ` +
           `WR ${(result.metrics.win_rate * 100).toFixed(1)}% | ` +
@@ -314,6 +317,20 @@ export default function DashboardPage() {
           />
           <span className="text-xs text-gray-400">Req. Sweep</span>
         </label>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-400">HTF:</span>
+          <select
+            value={htfInterval}
+            onChange={(e) => setHtfInterval(e.target.value)}
+            className="px-2 py-1 rounded bg-[#1e2130] text-white text-xs border border-[#2a2e39]"
+          >
+            <option value="">off</option>
+            <option value="1h">1h</option>
+            <option value="4h">4h</option>
+            <option value="1d">1d</option>
+          </select>
+        </div>
       </div>
 
       {/* Visibility toggles */}
@@ -349,6 +366,7 @@ export default function DashboardPage() {
         sweeps={sweeps}
         killzones={killzones}
         po3s={po3s}
+        htfBprs={htfBprs}
         visibility={visibility}
         trades={btTrades}
         liveMode={liveMode}

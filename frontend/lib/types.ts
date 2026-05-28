@@ -122,6 +122,7 @@ export type BacktestResponse = {
   interval: string;
   trades: Trade[];
   metrics: Metrics;
+  htf_bprs: BPR[];
 };
 
 export type CandlesResponse = {

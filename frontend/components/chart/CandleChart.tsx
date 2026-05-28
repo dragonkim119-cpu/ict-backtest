@@ -44,6 +44,7 @@ interface Props {
   sweeps: Sweep[];
   killzones: KillZoneSpan[];
   po3s: PO3[];
+  htfBprs?: BPR[];
   visibility: Visibility;
   trades?: Trade[];
   liveMode?: boolean;
@@ -60,6 +61,7 @@ export default function CandleChart({
   sweeps,
   killzones,
   po3s,
+  htfBprs,
   visibility,
   trades,
   liveMode,
@@ -253,6 +255,20 @@ export default function CandleChart({
       );
     }
 
+    // HTF BPR zones (gold, rendered behind LTF BPRs)
+    if (htfBprs && htfBprs.length > 0) {
+      attachBoxes(
+        htfBprs.map((b) => ({
+          time1: toUTC(b.created_time),
+          time2: lastTime,
+          price1: b.bottom,
+          price2: b.top,
+          fillColor: 'rgba(234,179,8,0.1)',
+          borderColor: 'rgba(234,179,8,0.7)',
+        })),
+      );
+    }
+
     // BPR boxes (brighter/thicker border)
     if (visibility.bpr) {
       attachBoxes(
@@ -339,7 +355,7 @@ export default function CandleChart({
       markersPluginRef.current = createSeriesMarkers<Time>(series, allMarkers);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fvgs, ifvgs, bprs, liquidities, sweeps, killzones, po3s, visibility, trades]);
+  }, [fvgs, ifvgs, bprs, liquidities, sweeps, killzones, po3s, htfBprs, visibility, trades]);
 
   return (
     <div

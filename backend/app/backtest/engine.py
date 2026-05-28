@@ -11,6 +11,7 @@ import pandas as pd
 
 from app.backtest.entry import find_entry_signal
 from app.backtest.metrics import compute_metrics
+from app.backtest.mtf_entry import is_within_htf_bpr
 from app.backtest.simulate import simulate_trade
 from app.backtest.stop import calc_stop_loss, calc_take_profit
 from app.models.patterns import BPR, KillZoneSpan, Sweep, Swing
@@ -75,6 +76,7 @@ def _params_hash(
     end: str | None,
     kill_zone_only: bool,
     require_sweep: bool,
+    htf_interval: str | None = None,
 ) -> str:
     payload = json.dumps(
         {
@@ -84,6 +86,7 @@ def _params_hash(
             "end": end,
             "kill_zone_only": kill_zone_only,
             "require_sweep": require_sweep,
+            "htf_interval": htf_interval,
         },
         sort_keys=True,
     )
@@ -121,6 +124,8 @@ def run_backtest(
     kill_zones: list[KillZoneSpan] | None = None,
     require_sweep: bool = False,
     sweeps: list[Sweep] | None = None,
+    htf_interval: str | None = None,
+    htf_bprs: list[BPR] | None = None,
 ) -> tuple[str, list[Trade], Metrics]:
     """Execute BPR backtest. Returns (run_id, trades, metrics)."""
     trades: list[Trade] = []
@@ -138,6 +143,9 @@ def run_backtest(
         if kill_zone_only and not _in_kill_zone(signal.entry_time, _kill_zones):
             continue
 
+        if htf_bprs and not is_within_htf_bpr(signal.entry_price, signal.entry_time, htf_bprs):
+            continue
+
         sl = calc_stop_loss(signal, swings)
         if sl is None:
             continue
@@ -147,10 +155,10 @@ def run_backtest(
         trades.append(trade)
 
     metrics = compute_metrics(trades)
-    params_hash = _params_hash(symbol, interval, start, end, kill_zone_only, require_sweep)
+    params_hash = _params_hash(symbol, interval, start, end, kill_zone_only, require_sweep, htf_interval)
     run_id = _run_id(params_hash)
 
-    _save_results(run_id, symbol, interval, start, end, params_hash, trades, metrics)
+    _save_results(run_id, symbol, interval, start, end, params_hash, trades, metrics, htf_interval)
     return run_id, trades, metrics
 
 
@@ -163,8 +171,11 @@ def _save_results(
     params_hash: str,
     trades: list[Trade],
     metrics: Metrics,
+    htf_interval: str | None = None,
 ) -> None:
-    params_json = json.dumps({"symbol": symbol, "interval": interval, "start": start, "end": end})
+    params_json = json.dumps(
+        {"symbol": symbol, "interval": interval, "start": start, "end": end, "htf_interval": htf_interval}
+    )
     now = datetime.utcnow().isoformat()
 
     with sqlite3.connect(_db_path()) as conn:

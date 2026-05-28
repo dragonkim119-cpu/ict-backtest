@@ -40,6 +40,7 @@ export async function runBacktest(
   end?: string,
   killZoneOnly?: boolean,
   requireSweep?: boolean,
+  htfInterval?: string,
 ): Promise<BacktestResponse> {
   const res = await fetch(
     `${BASE}/api/backtest${qs({
@@ -49,6 +50,7 @@ export async function runBacktest(
       end,
       kill_zone_only: killZoneOnly ? 'true' : undefined,
       require_sweep: requireSweep ? 'true' : undefined,
+      htf_interval: htfInterval || undefined,
     })}`,
     { method: 'POST' },
   );
