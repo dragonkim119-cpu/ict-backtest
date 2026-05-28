@@ -26,7 +26,7 @@ frontend/.env
 backend/.venv/
 
 # ── Playwright temp scripts & screenshots ─────────────────────
-frontend/pw_*.cjs
+frontend/*.cjs
 *.png
 
 # ── bkit plugin state ──────────────────────────────────────────
