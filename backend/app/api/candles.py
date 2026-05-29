@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from app.data.loader import load_candles
+from app.data.loader import get_candle_range, load_candles
 from app.models.candle import Candle
 
 router = APIRouter()
@@ -15,6 +15,28 @@ class CandlesResponse(BaseModel):
     symbol: str
     interval: str
     candles: list[Candle]
+
+
+class CandleRangeResponse(BaseModel):
+    symbol: str
+    interval: str
+    start: str
+    end: str
+    count: int
+
+
+@router.get("/candles/range", response_model=CandleRangeResponse)
+def get_range(
+    symbol: str = Query("BTCUSDT"),
+    interval: str = Query("1h"),
+) -> CandleRangeResponse:
+    info = get_candle_range(symbol, interval)
+    if info is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No data for {symbol} {interval}. Run ingest first.",
+        )
+    return CandleRangeResponse(symbol=symbol, interval=interval, **info)
 
 
 @router.get("/candles", response_model=CandlesResponse)

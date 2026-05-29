@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 
 import {
+  fetchCandleRange,
   fetchCandles,
   fetchChecklist,
   fetchPatterns,
@@ -34,6 +35,7 @@ import MetricsPanel from '@/components/backtest/MetricsPanel';
 import RunComparison from '@/components/backtest/RunComparison';
 import RunHistory from '@/components/backtest/RunHistory';
 import TradesTable from '@/components/backtest/TradesTable';
+import JournalTab from '@/components/journal/JournalTab';
 
 const CandleChart = dynamic(() => import('@/components/chart/CandleChart'), { ssr: false });
 
@@ -110,6 +112,8 @@ export default function DashboardPage() {
   const [selectedRunIds, setSelectedRunIds] = useState<string[]>([]);
   const [comparisonRuns, setComparisonRuns] = useState<[BacktestRun, BacktestRun] | null>(null);
 
+  const [activeTab, setActiveTab] = useState<'chart' | 'journal'>('chart');
+
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
   const [stats, setStats] = useState('');
@@ -169,7 +173,32 @@ export default function DashboardPage() {
       .catch(() => undefined);
   }, [patternUpdate, symbol, interval, htfInterval]);
 
+  // ── Helpers ───────────────────────────────────────────────────
+  const parseErrorMsg = (e: unknown): string => {
+    const raw = e instanceof Error ? e.message : String(e);
+    try {
+      const j = JSON.parse(raw) as { detail?: string };
+      return j.detail ?? raw;
+    } catch {
+      return raw;
+    }
+  };
+
   // ── Handlers ──────────────────────────────────────────────────
+  const handleIntervalChange = async (newInterval: string) => {
+    setInterval(newInterval);
+    setCandles([]); // clear stale series so live tick path isn't triggered before reload
+    try {
+      const range = await fetchCandleRange(symbol, newInterval);
+      if (range) {
+        setStartDate(range.start.slice(0, 10));
+        setEndDate(range.end.slice(0, 10));
+      }
+    } catch {
+      // silently ignore — user can set dates manually
+    }
+  };
+
   const handleLoad = async () => {
     setStatus('loading');
     setErrorMsg('');
@@ -201,7 +230,7 @@ export default function DashboardPage() {
       );
       setStatus('idle');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : String(e));
+      setErrorMsg(parseErrorMsg(e));
       setStatus('error');
     }
   };
@@ -225,7 +254,7 @@ export default function DashboardPage() {
       );
       setStatus('idle');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : String(e));
+      setErrorMsg(parseErrorMsg(e));
       setStatus('error');
     }
   };
@@ -238,7 +267,7 @@ export default function DashboardPage() {
       setStats(`Ingested ${result.rows_written} rows. Latest: ${result.latest_time ?? 'n/a'}`);
       setStatus('idle');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : String(e));
+      setErrorMsg(parseErrorMsg(e));
       setStatus('error');
     }
   };
@@ -269,7 +298,7 @@ export default function DashboardPage() {
       setShowHistory(true);
       setStatus('idle');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : String(e));
+      setErrorMsg(parseErrorMsg(e));
       setStatus('error');
     }
   };
@@ -293,7 +322,7 @@ export default function DashboardPage() {
       setBtMetrics(null); // clear current metrics to signal we're viewing history
       setStatus('idle');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : String(e));
+      setErrorMsg(parseErrorMsg(e));
       setStatus('error');
     }
   };
@@ -313,7 +342,7 @@ export default function DashboardPage() {
       setChecklist(result);
       setStatus('idle');
     } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : String(e));
+      setErrorMsg(parseErrorMsg(e));
       setStatus('error');
     }
   };
@@ -324,8 +353,28 @@ export default function DashboardPage() {
 
   return (
     <main className="min-h-screen p-4" style={{ background: '#0d0f17' }}>
-      <h1 className="text-xl font-bold text-white mb-4">ICT Backtest Dashboard</h1>
+      <div className="flex items-center gap-4 mb-4">
+        <h1 className="text-xl font-bold text-white">ICT Backtest Dashboard</h1>
+        <div className="flex gap-1">
+          {(['chart', 'journal'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-1 rounded text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? 'bg-[#2a2e39] text-white'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              {tab === 'chart' ? 'Chart' : 'Journal'}
+            </button>
+          ))}
+        </div>
+      </div>
 
+      {activeTab === 'journal' && <JournalTab />}
+
+      {activeTab === 'chart' && (<>
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3 mb-3">
         <span className="px-3 py-1.5 rounded text-white text-sm font-mono bg-[#1e2130]">
@@ -334,7 +383,7 @@ export default function DashboardPage() {
 
         <select
           value={interval}
-          onChange={(e) => setInterval(e.target.value)}
+          onChange={(e) => void handleIntervalChange(e.target.value)}
           className="px-3 py-1.5 rounded bg-[#1e2130] text-white text-sm border border-[#2a2e39]"
         >
           {INTERVALS.map((i) => (
@@ -539,6 +588,7 @@ export default function DashboardPage() {
         <span className="text-red-500">— BSL</span>
         <span>▲ Bull Sweep &nbsp; ▼ Bear Sweep</span>
       </div>
+      </>)}
     </main>
   );
 }

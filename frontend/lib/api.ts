@@ -1,8 +1,15 @@
 import type {
   BacktestResponse,
   BacktestRun,
+  CandleRangeResponse,
   CandlesResponse,
   ChecklistResult,
+  JournalCompareResult,
+  JournalEntry,
+  JournalEntryCreate,
+  JournalEntryUpdate,
+  JournalStats,
+  JournalVsBacktest,
   PatternsResponse,
   RunDetailResponse,
 } from './types';
@@ -16,6 +23,16 @@ function qs(params: Record<string, string | undefined>): string {
   }
   const s = p.toString();
   return s ? `?${s}` : '';
+}
+
+export async function fetchCandleRange(
+  symbol: string,
+  interval: string,
+): Promise<CandleRangeResponse | null> {
+  const res = await fetch(`${BASE}/api/candles/range${qs({ symbol, interval })}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
 }
 
 export async function fetchCandles(
@@ -85,6 +102,72 @@ export async function fetchRuns(limit = 50): Promise<BacktestRun[]> {
 
 export async function fetchRunDetail(runId: string): Promise<RunDetailResponse> {
   const res = await fetch(`${BASE}/api/backtest/runs/${encodeURIComponent(runId)}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function createJournalEntry(data: JournalEntryCreate): Promise<JournalEntry> {
+  const res = await fetch(`${BASE}/api/journal`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchJournalEntries(params?: {
+  symbol?: string;
+  interval?: string;
+  direction?: string;
+  limit?: number;
+}): Promise<JournalEntry[]> {
+  const q = qs({
+    symbol: params?.symbol,
+    interval: params?.interval,
+    direction: params?.direction,
+    limit: params?.limit !== undefined ? String(params.limit) : undefined,
+  });
+  const res = await fetch(`${BASE}/api/journal${q}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchJournalEntry(id: number): Promise<JournalEntry> {
+  const res = await fetch(`${BASE}/api/journal/${id}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function updateJournalEntry(id: number, data: JournalEntryUpdate): Promise<JournalEntry> {
+  const res = await fetch(`${BASE}/api/journal/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function deleteJournalEntry(id: number): Promise<void> {
+  const res = await fetch(`${BASE}/api/journal/${id}`, { method: 'DELETE' });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+export async function compareJournalEntry(id: number): Promise<JournalCompareResult> {
+  const res = await fetch(`${BASE}/api/journal/${id}/compare`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchJournalStats(): Promise<JournalStats> {
+  const res = await fetch(`${BASE}/api/journal/stats`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchJournalVsBacktest(): Promise<JournalVsBacktest> {
+  const res = await fetch(`${BASE}/api/journal/compare-backtest`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }

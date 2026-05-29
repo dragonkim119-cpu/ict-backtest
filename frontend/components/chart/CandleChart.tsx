@@ -76,6 +76,7 @@ export default function CandleChart({
   const candlesRef = useRef(candles);
   candlesRef.current = candles;
   const prevLengthRef = useRef(0);
+  const lastSeriesTimeRef = useRef<number>(0);
 
   // Create chart once
   useEffect(() => {
@@ -130,14 +131,19 @@ export default function CandleChart({
 
     if (isLiveTick) {
       const last = candles[candles.length - 1];
-      seriesRef.current.update({
-        time: toUTC(last.open_time),
-        open: last.open,
-        high: last.high,
-        low: last.low,
-        close: last.close,
-      });
-      chartRef.current?.timeScale().scrollToRealTime();
+      const newTime = toUTC(last.open_time);
+      // Guard: skip update if time regressed (stale candle from interval switch)
+      if (newTime >= lastSeriesTimeRef.current) {
+        seriesRef.current.update({
+          time: newTime,
+          open: last.open,
+          high: last.high,
+          low: last.low,
+          close: last.close,
+        });
+        lastSeriesTimeRef.current = newTime;
+        chartRef.current?.timeScale().scrollToRealTime();
+      }
     } else {
       seriesRef.current.setData(
         candles.map((c) => ({
@@ -148,6 +154,7 @@ export default function CandleChart({
           close: c.close,
         })),
       );
+      lastSeriesTimeRef.current = toUTC(candles[candles.length - 1].open_time);
       chartRef.current?.timeScale().fitContent();
     }
   }, [candles, liveMode]);

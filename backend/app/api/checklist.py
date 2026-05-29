@@ -197,25 +197,20 @@ def _check_mtf_direction(close: float, bprs: list[BPR], htf_bprs: list[BPR]) -> 
     )
 
 
-# ── endpoint ───────────────────────────────────────────────────────
+# ── service function (callable without HTTP context) ───────────────
 
 
-@router.get("/checklist", response_model=ChecklistResult)
-def get_checklist(
-    symbol: str = Query("BTCUSDT"),
-    interval: str = Query("5m"),
-    htf_interval: str = Query("1h"),
-) -> ChecklistResult:
+def run_checklist(
+    symbol: str, interval: str, htf_interval: str = "1h"
+) -> ChecklistResult | None:
+    """Evaluate the 7-step checklist. Returns None if data unavailable."""
     try:
         df = load_candles(symbol, interval)
     except FileNotFoundError:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No data for {symbol} {interval}. Run ingest first.",
-        )
+        return None
     df = df.tail(_LOOKBACK).reset_index(drop=True)
     if df.empty:
-        raise HTTPException(status_code=404, detail=f"No candles for {symbol} {interval}.")
+        return None
 
     result = detect_all_patterns(df)
     atr = compute_atr(df)
@@ -237,7 +232,6 @@ def get_checklist(
     last = df.iloc[-1]
     close = float(last["close"])
     last_ts: pd.Timestamp = last["open_time"]
-    evaluated_at = last_ts.isoformat()
 
     checks = [
         _check_killzone(last_ts, result.killzones),
@@ -253,8 +247,26 @@ def get_checklist(
         symbol=symbol,
         interval=interval,
         htf_interval=htf_interval,
-        evaluated_at=evaluated_at,
+        evaluated_at=last_ts.isoformat(),
         price=close,
         checks=checks,
         score=sum(1 for c in checks if c.passed),
     )
+
+
+# ── endpoint ───────────────────────────────────────────────────────
+
+
+@router.get("/checklist", response_model=ChecklistResult)
+def get_checklist(
+    symbol: str = Query("BTCUSDT"),
+    interval: str = Query("5m"),
+    htf_interval: str = Query("1h"),
+) -> ChecklistResult:
+    result = run_checklist(symbol, interval, htf_interval)
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No data for {symbol} {interval}. Run ingest first.",
+        )
+    return result

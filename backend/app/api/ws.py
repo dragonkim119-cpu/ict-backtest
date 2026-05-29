@@ -6,11 +6,24 @@ import json
 import pandas as pd
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from app.api.checklist import run_checklist
 from app.backtest.live_detector import detect_live_patterns
 from app.data.loader import save_candles
 from app.data.ws_binance import KlineUpdate, stream_klines
+from app.services.telegram import get_threshold, is_configured, send_message
 
 router = APIRouter()
+
+# LTF → HTF mapping for checklist evaluation
+_HTF: dict[str, str] = {
+    "1m": "5m",
+    "3m": "15m",
+    "5m": "1h",
+    "15m": "1h",
+    "30m": "4h",
+    "1h": "4h",
+    "4h": "1d",
+}
 
 
 def _update_to_msg(u: KlineUpdate) -> str:
@@ -86,5 +99,28 @@ async def _on_close(update: KlineUpdate, websocket: WebSocket) -> None:
             **patterns,
         })
         await websocket.send_text(msg)
+    except Exception:
+        pass
+
+    if is_configured():
+        asyncio.create_task(_check_and_alert(update))
+
+
+async def _check_and_alert(update: KlineUpdate) -> None:
+    """Evaluate checklist after candle close and send Telegram alert if threshold met."""
+    try:
+        htf = _HTF.get(update.interval, "1h")
+        cl = await asyncio.to_thread(run_checklist, update.symbol, update.interval, htf)
+        if cl is None or cl.score < get_threshold():
+            return
+        passed = ", ".join(c.label for c in cl.checks if c.passed)
+        text = (
+            f"\U0001f514 <b>ICT Alert</b> {update.symbol} {update.interval}\n"
+            f"Score: <b>{cl.score}/7</b>\n"
+            f"Price: {cl.price:,.2f}\n"
+            f"Passed: {passed}\n"
+            f"Time: {cl.evaluated_at}"
+        )
+        await send_message(text)
     except Exception:
         pass

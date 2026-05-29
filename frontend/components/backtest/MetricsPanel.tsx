@@ -18,7 +18,9 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 export default function MetricsPanel({ metrics, runId }: Props) {
   const pf =
-    metrics.profit_factor === Infinity ? '∞' : metrics.profit_factor.toFixed(2);
+    metrics.profit_factor == null ? '—'
+    : !isFinite(metrics.profit_factor) ? '∞'
+    : metrics.profit_factor.toFixed(2);
 
   return (
     <div className="rounded-lg border border-[#2a2e39] p-3 bg-[#131722]">

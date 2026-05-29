@@ -174,6 +174,92 @@ export type ChecklistResult = {
   score: number;
 };
 
+export type JournalEntry = {
+  id: number;
+  symbol: string;
+  interval: string;
+  direction: 'long' | 'short';
+  entry_time: string;
+  exit_time: string | null;
+  entry_price: number;
+  exit_price: number | null;
+  sl: number | null;
+  tp: number | null;
+  result_pnl: number | null;
+  rr: number | null;
+  notes: string;
+  tags: string[];
+  run_id: string | null;
+  created_at: string;
+};
+
+export type JournalEntryCreate = {
+  symbol?: string;
+  interval: string;
+  direction: 'long' | 'short';
+  entry_time: string;
+  exit_time?: string | null;
+  entry_price: number;
+  exit_price?: number | null;
+  sl?: number | null;
+  tp?: number | null;
+  result_pnl?: number | null;
+  rr?: number | null;
+  notes?: string;
+  tags?: string[];
+  run_id?: string | null;
+};
+
+export type JournalEntryUpdate = {
+  exit_time?: string | null;
+  exit_price?: number | null;
+  sl?: number | null;
+  tp?: number | null;
+  result_pnl?: number | null;
+  rr?: number | null;
+  notes?: string | null;
+  tags?: string[] | null;
+  run_id?: string | null;
+};
+
+export type JournalCompareResult = {
+  journal: JournalEntry;
+  run: BacktestRun | null;
+  trades: StoredTrade[] | null;
+};
+
+export type WeekdayStat = { day: string; total: number; wins: number; win_rate: number };
+export type HourStat = { hour: number; total: number; wins: number; win_rate: number };
+export type MonthStat = { month: string; total: number; wins: number; pnl_r: number };
+export type DirectionStat = { direction: string; total: number; wins: number; win_rate: number; avg_pnl_r: number | null };
+export type IntervalStat = { interval: string; total: number; wins: number; win_rate: number };
+
+export type JournalStats = {
+  closed_total: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
+  avg_rr: number | null;
+  total_pnl_r: number;
+  by_weekday: WeekdayStat[];
+  by_hour: HourStat[];
+  by_month: MonthStat[];
+  by_direction: DirectionStat[];
+  by_interval: IntervalStat[];
+};
+
+export type BacktestAggregate = {
+  total_runs: number;
+  avg_win_rate: number | null;
+  avg_profit_factor: number | null;
+  avg_total_pnl_r: number | null;
+};
+
+export type JournalVsBacktest = {
+  journal: JournalStats;
+  backtest: BacktestAggregate;
+};
+
 export type BacktestResponse = {
   run_id: string;
   symbol: string;
@@ -181,6 +267,14 @@ export type BacktestResponse = {
   trades: Trade[];
   metrics: Metrics;
   htf_bprs: BPR[];
+};
+
+export type CandleRangeResponse = {
+  symbol: string;
+  interval: string;
+  start: string;
+  end: string;
+  count: number;
 };
 
 export type CandlesResponse = {

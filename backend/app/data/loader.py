@@ -102,6 +102,22 @@ def load_candles(
     return df
 
 
+def get_candle_range(symbol: str, interval: str) -> dict | None:
+    """Return {start, end, count} for stored candles, or None if no file."""
+    path = _parquet_path(symbol, interval)
+    if not path.exists():
+        return None
+    df = pq.read_table(path, columns=["open_time"]).to_pandas()
+    if df.empty:
+        return None
+    ts = pd.to_datetime(df["open_time"], utc=True)
+    return {
+        "start": ts.min().isoformat(),
+        "end": ts.max().isoformat(),
+        "count": len(df),
+    }
+
+
 def candle_count(symbol: str, interval: str) -> int:
     """Return number of candles stored without loading full data."""
     path = _parquet_path(symbol, interval)

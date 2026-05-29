@@ -244,11 +244,78 @@
 - run 목록 로드 < 500ms
 - 두 run 비교 시 메트릭 차이 하이라이트 표시
 
-## Phase 3 (예정)
+## Phase 3: 알림 + 매매 일지 (4주)
 
-- 텔레그램 봇 알림 (BPR 진입 신호 발생 시)
-- 매매 일지 (실전 트레이드 기록 + 백테스트 룰과의 비교)
-- 일지 통계 대시보드
+### Week 1: 텔레그램 봇 알림
+
+**목표**: ICT 체크리스트 조건 충족 시 텔레그램으로 알림 전송.
+
+**작업 (백엔드)**
+- [ ] `app/services/telegram.py` — `send_message(text)` (httpx, Bot API)
+- [ ] `app/api/telegram.py` — `GET /api/telegram/test`, `POST /api/telegram/config`
+- [ ] `app/api/ws.py` — 체크리스트 score ≥ 5/7 또는 BPR 신호 감지 시 알림 트리거
+- [ ] `.env` — `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 환경변수
+- [ ] 단위 테스트 (mock httpx)
+
+**작업 (프론트)**
+- [ ] 설정 패널에 텔레그램 알림 임계값 슬라이더 (3/7 ~ 7/7)
+- [ ] 알림 발송 이력 표시 (최근 10건)
+
+**검증 기준**
+- `POST /api/telegram/test` → 실제 텔레그램 메시지 수신
+- 체크리스트 score ≥ 임계값인 캔들에서 자동 알림 발송
+- 토큰 미설정 시 graceful skip (서버 크래시 없음)
+
+---
+
+### Week 2: 매매 일지 백엔드
+
+**목표**: 실전 트레이드 CRUD + 백테스트 run 연계 저장.
+
+**작업 (백엔드)**
+- [ ] SQLite 스키마: `trade_journal` (id, entry_time, exit_time, symbol, interval, direction, entry_price, exit_price, sl, tp, result_pnl, rr, notes, tags, run_id FK, created_at)
+- [ ] `app/models/journal.py` — Pydantic 스키마
+- [ ] `app/api/journal.py` — `POST /api/journal`, `GET /api/journal`, `PUT /api/journal/{id}`, `DELETE /api/journal/{id}`
+- [ ] `GET /api/journal/{id}/compare` — 해당 일지 트레이드와 동일 구간 백테스트 run 비교
+- [ ] 단위 테스트 (CRUD + 비교 엔드포인트)
+
+**검증 기준**
+- CRUD 4개 엔드포인트 정상 동작
+- run_id 연결 시 백테스트 메트릭 함께 반환
+
+---
+
+### Week 3: 매매 일지 UI
+
+**목표**: 일지 기록/조회 + 백테스트 룰 비교 화면.
+
+**작업 (프론트)**
+- [ ] `components/journal/JournalForm.tsx` — 트레이드 기록 폼 (날짜/방향/가격/메모/태그)
+- [ ] `components/journal/JournalTable.tsx` — 일지 목록 (정렬/필터/태그)
+- [ ] `components/journal/JournalDetail.tsx` — 상세 + 백테스트 run 비교 사이드바
+- [ ] `app/page.tsx` — 일지 탭 추가
+
+**검증 기준**
+- 일지 등록 → 목록 즉시 반영
+- 백테스트 run 연결 시 메트릭 비교 표시
+
+---
+
+### Week 4: 일지 통계 대시보드
+
+**목표**: 실전 성과 시각화 (요일/시간대별 승률, 월별 PnL, 실전 vs 백테스트).
+
+**작업 (백엔드)**
+- [ ] `GET /api/journal/stats` — 요일별·시간대별 승률, 월별 PnL, 평균 RR
+- [ ] `GET /api/journal/compare-backtest` — 전체 실전 vs 전체 백테스트 성과 비교
+
+**작업 (프론트)**
+- [ ] `components/journal/StatsPanel.tsx` — 히트맵(요일×시간), 월별 바차트
+- [ ] `components/journal/BacktestCompare.tsx` — 실전 vs 백테스트 메트릭 카드
+
+**검증 기준**
+- 일지 10건 이상 시 모든 차트 정상 렌더링
+- 실전/백테스트 승률 비교 수치 정확
 
 ---
 
