@@ -10,6 +10,7 @@ import {
   fetchPatterns,
   fetchRunDetail,
   fetchRuns,
+  fetchTurtleDonchian,
   runBacktest,
   triggerIngest,
 } from '@/lib/api';
@@ -27,6 +28,7 @@ import type {
   StoredTrade,
   Sweep,
   Trade,
+  TurtleDonchianResponse,
 } from '@/lib/types';
 import { useKlineStream } from '@/lib/ws';
 
@@ -63,6 +65,8 @@ interface Visibility {
   sweeps: boolean;
   killzones: boolean;
   po3: boolean;
+  turtle_s1: boolean;
+  turtle_s2: boolean;
 }
 
 const VISIBILITY_LABELS: { key: keyof Visibility; label: string; color: string }[] = [
@@ -73,6 +77,8 @@ const VISIBILITY_LABELS: { key: keyof Visibility; label: string; color: string }
   { key: 'sweeps', label: 'Sweeps', color: '#ec4899' },
   { key: 'killzones', label: 'Kill Zones', color: '#374151' },
   { key: 'po3', label: 'PO3/AMD', color: '#8b5cf6' },
+  { key: 'turtle_s1', label: 'Turtle S1', color: '#22c55e' },
+  { key: 'turtle_s2', label: 'Turtle S2', color: '#60a5fa' },
 ];
 
 export default function DashboardPage() {
@@ -88,7 +94,10 @@ export default function DashboardPage() {
     sweeps: true,
     killzones: true,
     po3: true,
+    turtle_s1: false,
+    turtle_s2: false,
   });
+  const [turtleData, setTurtleData] = useState<TurtleDonchianResponse | null>(null);
 
   const [candles, setCandles] = useState<Candle[]>([]);
   const [fvgs, setFvgs] = useState<FVG[]>([]);
@@ -220,10 +229,13 @@ export default function DashboardPage() {
       const end = endDate ? `${endDate}T23:59:59Z` : undefined;
 
       const t0 = performance.now();
-      const [candleRes, patternRes] = await Promise.all([
+      const turtleNeeded = visibility.turtle_s1 || visibility.turtle_s2;
+      const [candleRes, patternRes, turtleRes] = await Promise.all([
         fetchCandles(symbol, interval, start, end),
         fetchPatterns(symbol, interval, start, end),
+        turtleNeeded ? fetchTurtleDonchian(symbol, interval, start, end) : Promise.resolve(null),
       ]);
+      setTurtleData(turtleRes);
       const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
 
       setCandles(candleRes.candles ?? []);
@@ -542,6 +554,7 @@ export default function DashboardPage() {
         killzones={killzones}
         po3s={po3s}
         htfBprs={htfBprs}
+        turtleData={turtleData}
         visibility={visibility}
         trades={btTrades}
         liveMode={liveMode}

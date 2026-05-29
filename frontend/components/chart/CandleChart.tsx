@@ -5,6 +5,7 @@ import {
   CandlestickSeries,
   ColorType,
   CrosshairMode,
+  LineSeries,
   LineStyle,
   createChart,
   createSeriesMarkers,
@@ -24,7 +25,10 @@ import {
   type Box,
   type KillZone,
 } from '@/lib/chart-primitives';
-import type { BPR, Candle, FVG, IFVG, KillZoneSpan, LiquidityPool, PO3, Sweep, Trade } from '@/lib/types';
+import type {
+  BPR, Candle, DonchianPoint, FVG, IFVG, KillZoneSpan,
+  LiquidityPool, PO3, Sweep, Trade, TurtleDonchianResponse,
+} from '@/lib/types';
 
 interface Visibility {
   fvg: boolean;
@@ -34,6 +38,8 @@ interface Visibility {
   sweeps: boolean;
   killzones: boolean;
   po3: boolean;
+  turtle_s1: boolean;
+  turtle_s2: boolean;
 }
 
 interface Props {
@@ -46,6 +52,7 @@ interface Props {
   killzones: KillZoneSpan[];
   po3s: PO3[];
   htfBprs?: BPR[];
+  turtleData?: TurtleDonchianResponse | null;
   visibility: Visibility;
   trades?: Trade[];
   liveMode?: boolean;
@@ -63,6 +70,7 @@ export default function CandleChart({
   killzones,
   po3s = [],
   htfBprs = [],
+  turtleData,
   visibility,
   trades,
   liveMode,
@@ -78,6 +86,10 @@ export default function CandleChart({
   candlesRef.current = candles;
   const prevLengthRef = useRef(0);
   const lastSeriesTimeRef = useRef<number>(0);
+  const s1UpperRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const s1LowerRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const s2UpperRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const s2LowerRef = useRef<ISeriesApi<'Line'> | null>(null);
 
   // Create chart once
   useEffect(() => {
@@ -123,6 +135,13 @@ export default function CandleChart({
     chartRef.current = chart;
     seriesRef.current = series;
 
+    // Donchian channel line series (hidden until turtleData is loaded)
+    const lineOpts = { lineWidth: 1 as const, lastValueVisible: false, priceLineVisible: false };
+    s1UpperRef.current = chart.addSeries(LineSeries, { ...lineOpts, color: 'rgba(34,197,94,0.7)', lineStyle: LineStyle.Dashed });
+    s1LowerRef.current = chart.addSeries(LineSeries, { ...lineOpts, color: 'rgba(34,197,94,0.5)', lineStyle: LineStyle.Dotted });
+    s2UpperRef.current = chart.addSeries(LineSeries, { ...lineOpts, color: 'rgba(96,165,250,0.7)', lineStyle: LineStyle.Dashed });
+    s2LowerRef.current = chart.addSeries(LineSeries, { ...lineOpts, color: 'rgba(96,165,250,0.5)', lineStyle: LineStyle.Dotted });
+
     const observer = new ResizeObserver(() => {
       if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
     });
@@ -133,6 +152,10 @@ export default function CandleChart({
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      s1UpperRef.current = null;
+      s1LowerRef.current = null;
+      s2UpperRef.current = null;
+      s2LowerRef.current = null;
     };
   }, []);
 
@@ -373,12 +396,56 @@ export default function CandleChart({
       }
     }
 
+    // Turtle System entry/exit markers
+    if (turtleData) {
+      for (const sig of turtleData.signals) {
+        const isS1 = sig.system === 1;
+        const isEntry = sig.type === 'entry_long' || sig.type === 'entry_short';
+        const isLong = sig.type === 'entry_long' || sig.type === 'exit_long';
+        const show = (isS1 && visibility.turtle_s1) || (!isS1 && visibility.turtle_s2);
+        if (!show) continue;
+        allMarkers.push({
+          time: toUTC(sig.time),
+          position: isLong ? ('belowBar' as const) : ('aboveBar' as const),
+          color: isS1 ? 'rgba(34,197,94,0.9)' : 'rgba(96,165,250,0.9)',
+          shape: isEntry
+            ? (isLong ? ('arrowUp' as const) : ('arrowDown' as const))
+            : ('circle' as const),
+          size: 1 as const,
+          text: `S${sig.system}${isEntry ? (isLong ? '▲' : '▼') : '×'}`,
+        });
+      }
+    }
+
     if (allMarkers.length > 0) {
       allMarkers.sort((a, b) => (a.time as number) - (b.time as number));
       markersPluginRef.current = createSeriesMarkers<Time>(series, allMarkers);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fvgs, ifvgs, bprs, liquidities, sweeps, killzones, po3s, htfBprs, visibility, trades]);
+  }, [fvgs, ifvgs, bprs, liquidities, sweeps, killzones, po3s, htfBprs, visibility, trades, turtleData]);
+
+  // Update Donchian channel series data when turtleData or visibility changes
+  useEffect(() => {
+    const toLine = (pts: DonchianPoint[]) =>
+      pts.map((p) => ({ time: toUTC(p.time), value: p.value }));
+
+    if (s1UpperRef.current) {
+      const data = turtleData && visibility.turtle_s1 ? toLine(turtleData.s1_upper) : [];
+      s1UpperRef.current.setData(data);
+    }
+    if (s1LowerRef.current) {
+      const data = turtleData && visibility.turtle_s1 ? toLine(turtleData.s1_lower) : [];
+      s1LowerRef.current.setData(data);
+    }
+    if (s2UpperRef.current) {
+      const data = turtleData && visibility.turtle_s2 ? toLine(turtleData.s2_upper) : [];
+      s2UpperRef.current.setData(data);
+    }
+    if (s2LowerRef.current) {
+      const data = turtleData && visibility.turtle_s2 ? toLine(turtleData.s2_lower) : [];
+      s2LowerRef.current.setData(data);
+    }
+  }, [turtleData, visibility.turtle_s1, visibility.turtle_s2]);
 
   return (
     <div
