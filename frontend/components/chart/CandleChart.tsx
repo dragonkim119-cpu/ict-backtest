@@ -8,6 +8,7 @@ import {
   LineStyle,
   createChart,
   createSeriesMarkers,
+  type BusinessDay,
   type IChartApi,
   type IPriceLine,
   type ISeriesApi,
@@ -82,6 +83,17 @@ export default function CandleChart({
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const fmtKST = (t: UTCTimestamp | BusinessDay): string => {
+      if (typeof t !== 'number') return '';
+      const d = new Date(t * 1000);
+      const yy = d.getUTCFullYear();
+      const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      const hh = String(d.getUTCHours()).padStart(2, '0');
+      const mm = String(d.getUTCMinutes()).padStart(2, '0');
+      return `${yy}-${mo}-${dd} ${hh}:${mm} KST`;
+    };
+
     const chart = createChart(containerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: '#131722' },
@@ -94,6 +106,7 @@ export default function CandleChart({
       crosshair: { mode: CrosshairMode.Normal },
       rightPriceScale: { borderColor: '#2a2e39' },
       timeScale: { borderColor: '#2a2e39', timeVisible: true },
+      localization: { timeFormatter: fmtKST },
       width: containerRef.current.clientWidth,
       height: 600,
     });

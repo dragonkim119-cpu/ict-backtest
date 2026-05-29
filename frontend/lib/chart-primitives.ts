@@ -146,8 +146,10 @@ export class KillZonePrimitive {
   }
 }
 
+const KST_OFFSET_S = 9 * 3600; // UTC+9 — shift all chart timestamps to KST display
+
 export function toUTC(iso: string): UTCTimestamp {
-  return (new Date(iso).getTime() / 1000) as UTCTimestamp;
+  return ((new Date(iso).getTime() / 1000) + KST_OFFSET_S) as UTCTimestamp;
 }
 
 export const KZ_COLORS: Record<string, string> = {

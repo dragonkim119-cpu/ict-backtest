@@ -79,7 +79,7 @@ export default function DashboardPage() {
   const [symbol] = useState('BTCUSDT');
   const [interval, setInterval] = useState('1h');
   const [startDate, setStartDate] = useState('2025-06-01');
-  const [endDate, setEndDate] = useState('2026-05-26');
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [visibility, setVisibility] = useState<Visibility>({
     fvg: true,
     ifvg: false,
@@ -118,6 +118,19 @@ export default function DashboardPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [stats, setStats] = useState('');
   const [liveMode, setLiveMode] = useState(false);
+
+  // ── Auto-load actual data range on mount ─────────────────────
+  useEffect(() => {
+    fetchCandleRange(symbol, interval)
+      .then((range) => {
+        if (range) {
+          setStartDate(range.start.slice(0, 10));
+          setEndDate(range.end.slice(0, 10));
+        }
+      })
+      .catch(() => undefined);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Live WebSocket stream ──────────────────────────────────────
   const { status: wsStatus, liveCandle, patternUpdate } = useKlineStream(symbol, interval, liveMode);
