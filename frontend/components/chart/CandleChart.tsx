@@ -155,7 +155,10 @@ export default function CandleChart({
           close: last.close,
         });
         lastSeriesTimeRef.current = newTime;
-        chartRef.current?.timeScale().scrollToRealTime();
+        // Only auto-scroll if user is already near the right edge (not viewing history)
+        const lr = chartRef.current?.timeScale().getVisibleLogicalRange();
+        const atEdge = lr ? lr.to >= prevLengthRef.current - 3 : true;
+        if (atEdge) chartRef.current?.timeScale().scrollToRealTime();
       }
     } else {
       seriesRef.current.setData(
