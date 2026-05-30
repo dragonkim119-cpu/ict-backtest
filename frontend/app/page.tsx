@@ -24,6 +24,7 @@ import type {
   KillZoneSpan,
   LiquidityPool,
   Metrics,
+  OrderBlock,
   PO3,
   StoredTrade,
   Sweep,
@@ -59,6 +60,7 @@ const WS_STATUS_LABEL: Record<string, string> = {
 };
 
 interface Visibility {
+  ob: boolean;
   fvg: boolean;
   ifvg: boolean;
   bpr: boolean;
@@ -77,6 +79,7 @@ interface Visibility {
 }
 
 const VISIBILITY_LABELS: { key: keyof Visibility; label: string; color: string }[] = [
+  { key: 'ob', label: 'OB', color: '#3b82f6' },
   { key: 'fvg', label: 'FVG', color: '#26a69a' },
   { key: 'ifvg', label: 'IFVG', color: '#7c6af7' },
   { key: 'bpr', label: 'BPR', color: '#f59e0b' },
@@ -101,6 +104,7 @@ export default function DashboardPage() {
   const [startDate, setStartDate] = useState('2025-06-01');
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [visibility, setVisibility] = useState<Visibility>({
+    ob: true,
     fvg: true,
     ifvg: false,
     bpr: true,
@@ -127,6 +131,7 @@ export default function DashboardPage() {
   const [sweeps, setSweeps] = useState<Sweep[]>([]);
   const [killzones, setKillzones] = useState<KillZoneSpan[]>([]);
   const [po3s, setPo3s] = useState<PO3[]>([]);
+  const [obs, setObs] = useState<OrderBlock[]>([]);
 
   const [btMetrics, setBtMetrics] = useState<Metrics | null>(null);
   const [btTrades, setBtTrades] = useState<Trade[]>([]);
@@ -209,6 +214,7 @@ export default function DashboardPage() {
     setLiquidities(patternUpdate.liquidities ?? []);
     setKillzones(patternUpdate.killzones ?? []);
     setPo3s(patternUpdate.po3s ?? []);
+    setObs(patternUpdate.obs ?? []);
     // Auto-refresh checklist on each closed candle in live mode
     fetchChecklist(symbol, interval, htfInterval || '1h')
       .then(setChecklist)
@@ -287,6 +293,7 @@ export default function DashboardPage() {
       setSweeps(patternRes.sweeps ?? []);
       setKillzones(patternRes.killzones ?? []);
       setPo3s(patternRes.po3s ?? []);
+      setObs(patternRes.obs ?? []);
 
       const po3Count = (patternRes.po3s ?? []).length;
       setStats(
@@ -663,6 +670,7 @@ export default function DashboardPage() {
         sweeps={sweeps}
         killzones={killzones}
         po3s={po3s}
+        obs={obs}
         htfBprs={htfBprs}
         turtleData={turtleData}
         visibility={visibility}

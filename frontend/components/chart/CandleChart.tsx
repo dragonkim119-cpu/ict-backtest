@@ -28,7 +28,7 @@ import {
 } from '@/lib/chart-primitives';
 import type {
   BPR, Candle, DonchianPoint, FVG, IFVG, KillZoneSpan,
-  LiquidityPool, PO3, Sweep, Trade, TurtleDonchianResponse,
+  LiquidityPool, OrderBlock, PO3, Sweep, Trade, TurtleDonchianResponse,
 } from '@/lib/types';
 
 interface Visibility {
@@ -39,6 +39,7 @@ interface Visibility {
   sweeps: boolean;
   killzones: boolean;
   po3: boolean;
+  ob: boolean;
   turtle_s1: boolean;
   turtle_s2: boolean;
   ma20: boolean;
@@ -58,6 +59,7 @@ interface Props {
   sweeps: Sweep[];
   killzones: KillZoneSpan[];
   po3s: PO3[];
+  obs: OrderBlock[];
   htfBprs?: BPR[];
   turtleData?: TurtleDonchianResponse | null;
   visibility: Visibility;
@@ -76,6 +78,7 @@ export default function CandleChart({
   sweeps,
   killzones,
   po3s = [],
+  obs = [],
   htfBprs = [],
   turtleData,
   visibility,
@@ -374,6 +377,23 @@ export default function CandleChart({
       attachBoxes(distribBoxes);
     }
 
+    // Order Block boxes
+    if (visibility.ob && obs.length > 0) {
+      attachBoxes(
+        obs.map((ob) => {
+          const endTime = ob.mitigated && ob.mitigated_time ? toUTC(ob.mitigated_time) : lastTime;
+          return {
+            time1: toUTC(ob.ob_time),
+            time2: endTime,
+            price1: ob.bottom,
+            price2: ob.top,
+            fillColor: ob.type === 'bull' ? 'rgba(59,130,246,0.15)' : 'rgba(234,88,12,0.15)',
+            borderColor: ob.type === 'bull' ? 'rgba(59,130,246,0.7)' : 'rgba(234,88,12,0.7)',
+          };
+        }),
+      );
+    }
+
     // FVG boxes — use created_time as start (works for both historical and live pattern updates)
     if (visibility.fvg) {
       attachBoxes(
@@ -569,7 +589,7 @@ export default function CandleChart({
       markersPluginRef.current = createSeriesMarkers<Time>(series, allMarkers);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fvgs, ifvgs, bprs, liquidities, sweeps, killzones, po3s, htfBprs, visibility, trades, turtleData]);
+  }, [fvgs, ifvgs, bprs, liquidities, sweeps, killzones, po3s, obs, htfBprs, visibility, trades, turtleData]);
 
   // Update Donchian channel series data when turtleData or visibility changes
   useEffect(() => {

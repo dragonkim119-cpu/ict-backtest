@@ -13,6 +13,7 @@ from app.models.patterns import (
     PO3,
     KillZoneSpan,
     LiquidityPool,
+    OrderBlock,
     Sweep,
     Swing,
 )
@@ -32,6 +33,7 @@ class PatternsResponse(BaseModel):
     sweeps: list[Sweep]
     killzones: list[KillZoneSpan]
     po3s: list[PO3]
+    obs: list[OrderBlock] = []
 
 
 @router.get("/patterns", response_model=PatternsResponse)
@@ -65,4 +67,5 @@ def get_patterns(
         sweeps=result.sweeps,
         killzones=result.killzones,
         po3s=result.po3s,
+        obs=result.obs,
     )
