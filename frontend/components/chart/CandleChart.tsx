@@ -5,6 +5,7 @@ import {
   CandlestickSeries,
   ColorType,
   CrosshairMode,
+  HistogramSeries,
   LineSeries,
   LineStyle,
   createChart,
@@ -45,6 +46,7 @@ interface Visibility {
   ma200: boolean;
   ema50: boolean;
   vwap: boolean;
+  volume: boolean;
 }
 
 interface Props {
@@ -101,6 +103,7 @@ export default function CandleChart({
   const ma200Ref = useRef<ISeriesApi<'Line'> | null>(null);
   const ema50Ref = useRef<ISeriesApi<'Line'> | null>(null);
   const vwapRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const volumeRef = useRef<ISeriesApi<'Histogram'> | null>(null);
 
   // Create chart once
   useEffect(() => {
@@ -160,6 +163,12 @@ export default function CandleChart({
     ma200Ref.current = chart.addSeries(LineSeries, { ...maOpts, color: 'rgba(239,68,68,0.85)', lineWidth: 2 as const, title: 'MA200' });
     ema50Ref.current = chart.addSeries(LineSeries, { ...maOpts, color: 'rgba(168,85,247,0.85)', lineStyle: LineStyle.Dashed, title: 'EMA50' });
     vwapRef.current = chart.addSeries(LineSeries, { lineWidth: 2 as const, lastValueVisible: true, priceLineVisible: false, color: 'rgba(255,255,255,0.8)', title: 'VWAP' });
+    volumeRef.current = chart.addSeries(HistogramSeries, {
+      priceScaleId: 'volume',
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+    chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
 
     // OHLC crosshair tooltip
     chart.subscribeCrosshairMove((param) => {
@@ -224,6 +233,7 @@ export default function CandleChart({
       ma200Ref.current = null;
       ema50Ref.current = null;
       vwapRef.current = null;
+      volumeRef.current = null;
     };
   }, []);
 
@@ -265,6 +275,32 @@ export default function CandleChart({
       chartRef.current?.timeScale().fitContent();
     }
   }, [candles, liveMode]);
+
+  // Volume histogram + candle scale margin adjustment
+  useEffect(() => {
+    if (!volumeRef.current) return;
+    if (visibility.volume && candles.length > 0) {
+      const seen = new Set<number>();
+      const data = candles
+        .map((c) => ({
+          time: toUTC(c.open_time),
+          value: c.volume,
+          color: c.close >= c.open ? 'rgba(38,166,154,0.45)' : 'rgba(239,83,80,0.45)',
+        }))
+        .filter(({ time }) => {
+          const t = time as number;
+          if (seen.has(t)) return false;
+          seen.add(t);
+          return true;
+        })
+        .sort((a, b) => (a.time as number) - (b.time as number));
+      volumeRef.current.setData(data);
+      chartRef.current?.priceScale('right').applyOptions({ scaleMargins: { top: 0, bottom: 0.2 } });
+    } else {
+      volumeRef.current.setData([]);
+      chartRef.current?.priceScale('right').applyOptions({ scaleMargins: { top: 0, bottom: 0 } });
+    }
+  }, [candles, visibility.volume]);
 
   // Update overlays when patterns or visibility changes (NOT on every candle tick)
   // candlesRef is used instead of candles to avoid re-running on live ticks.

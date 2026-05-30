@@ -72,6 +72,7 @@ interface Visibility {
   ma200: boolean;
   ema50: boolean;
   vwap: boolean;
+  volume: boolean;
 }
 
 const VISIBILITY_LABELS: { key: keyof Visibility; label: string; color: string }[] = [
@@ -89,6 +90,7 @@ const VISIBILITY_LABELS: { key: keyof Visibility; label: string; color: string }
   { key: 'ma200', label: 'MA 200', color: '#ef4444' },
   { key: 'ema50', label: 'EMA 50', color: '#a855f7' },
   { key: 'vwap', label: 'VWAP', color: '#6b7280' },
+  { key: 'volume', label: 'Volume', color: '#374151' },
 ];
 
 export default function DashboardPage() {
@@ -112,6 +114,7 @@ export default function DashboardPage() {
     ma200: false,
     ema50: false,
     vwap: false,
+    volume: true,
   });
   const [turtleData, setTurtleData] = useState<TurtleDonchianResponse | null>(null);
 
