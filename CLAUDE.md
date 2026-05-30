@@ -140,6 +140,14 @@
 - `CandleChart.tsx` — SMA20/50/200, EMA50, VWAP LineSeries + dedup/sort 방어로직
 - `app/page.tsx` — 심볼 인풋(datalist), MA 이격률 패널(`useMemo`), Visibility 확장
 
+**매크로 대시보드 신규**
+- `app/models/macro.py` — `EconomicEvent`, `NewsItem` Pydantic 모델
+- `app/services/macro.py` — Finnhub 경제지표 캘린더 + 크립토/거시경제 뉴스, RSS 피드, 5분 캐시, 고임팩트 이벤트 텔레그램 알림
+- `app/api/macro.py` — `GET /api/macro/calendar|news|status`
+- `components/macro/MacroTab.tsx` — 탭 컨테이너 + 자동 갱신 인터벌 설정
+- `components/macro/EconomicCalendar.tsx` — 경제지표 테이블 (임팩트/시간/예상/실제)
+- `components/macro/NewsFeed.tsx` — 크립토/거시경제 뉴스 피드
+
 ### Tests
 - **총 153개 통과** (test_fvg, test_bpr, test_liquidity, test_backtest, test_mtf, test_checklist, test_po3, test_journal × 22개, test_telegram × 10개)
 
@@ -167,6 +175,9 @@
 | GET | `/api/telegram/status` | 텔레그램 설정 상태 |
 | POST | `/api/telegram/test` | 텔레그램 테스트 발송 |
 | GET | `/api/turtle/donchian` | 도나치안 채널 + 신호 |
+| GET | `/api/macro/calendar` | 경제지표 캘린더 (Finnhub) |
+| GET | `/api/macro/news` | 크립토+거시경제 뉴스 |
+| GET | `/api/macro/status` | API 키 설정 상태 |
 | WS | `/ws/kline` | 실시간 캔들 스트림 |
 
 ---
@@ -221,7 +232,15 @@
 - **Path Traversal 방어**: `loader._parquet_path()` — `resolve()` 후 `DATA_DIR/candles/` 내부인지 `startswith` 검증. symbol/interval에 `../../` 포함 시 `ValueError` → 400
 - **ingest days 상한**: `IngestRequest.days = Field(ge=1, le=3650)` — 최대 10년, 초과 시 422
 - **네트워크 격리**: uvicorn `--host 127.0.0.1` (로컬 전용), CORS `localhost:3000/3001`만 허용
-- **시크릿 관리**: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` → `.env` (gitignore), 런타임 `os.getenv()`
+- **시크릿 관리**: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `FINNHUB_API_KEY` → `.env` (gitignore), 런타임 `os.getenv()`
+- **`.env.example`**: 플레이스홀더만 포함 → 의도적으로 gitignore 제외, GitHub 공개 OK
+
+### 매크로 대시보드
+- **데이터 소스**: Finnhub (경제캘린더 + 크립토/거시 뉴스) + CoinDesk/Cointelegraph RSS (키 불필요)
+- **캐시**: `_CACHE` 딕셔너리, TTL 300초 (5분) — Finnhub 무료 rate limit 보호
+- **텔레그램 알림**: 고임팩트 이벤트 2시간 전 자동 발송, `_ALERTED` set으로 중복 방지
+- **프론트 갱신 인터벌**: 사용자 선택 (1/5/15/30/60분), `setInterval` + `useEffect`
+- **필수 환경변수**: `FINNHUB_API_KEY` (finnhub.io 무료 가입)
 
 ---
 
