@@ -84,6 +84,15 @@ class PO3(BaseModel):
     distrib_end_time: datetime | None = None
 
 
+class MSSEvent(BaseModel):
+    type: Literal["bos", "choch"]
+    direction: Literal["bull", "bear"]
+    level: float
+    break_index: int
+    break_time: datetime
+    swing_time: datetime
+
+
 class OrderBlock(BaseModel):
     model_config = ConfigDict(frozen=False)
 

@@ -23,6 +23,7 @@ import type {
   IFVG,
   KillZoneSpan,
   LiquidityPool,
+  MSSEvent,
   Metrics,
   OrderBlock,
   PO3,
@@ -61,6 +62,7 @@ const WS_STATUS_LABEL: Record<string, string> = {
 
 interface Visibility {
   ob: boolean;
+  mss: boolean;
   fvg: boolean;
   ifvg: boolean;
   bpr: boolean;
@@ -80,6 +82,7 @@ interface Visibility {
 
 const VISIBILITY_LABELS: { key: keyof Visibility; label: string; color: string }[] = [
   { key: 'ob', label: 'OB', color: '#3b82f6' },
+  { key: 'mss', label: 'BOS/CHoCH', color: '#f97316' },
   { key: 'fvg', label: 'FVG', color: '#26a69a' },
   { key: 'ifvg', label: 'IFVG', color: '#7c6af7' },
   { key: 'bpr', label: 'BPR', color: '#f59e0b' },
@@ -105,6 +108,7 @@ export default function DashboardPage() {
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [visibility, setVisibility] = useState<Visibility>({
     ob: true,
+    mss: true,
     fvg: true,
     ifvg: false,
     bpr: true,
@@ -132,6 +136,7 @@ export default function DashboardPage() {
   const [killzones, setKillzones] = useState<KillZoneSpan[]>([]);
   const [po3s, setPo3s] = useState<PO3[]>([]);
   const [obs, setObs] = useState<OrderBlock[]>([]);
+  const [mssEvents, setMssEvents] = useState<MSSEvent[]>([]);
 
   const [btMetrics, setBtMetrics] = useState<Metrics | null>(null);
   const [btTrades, setBtTrades] = useState<Trade[]>([]);
@@ -216,6 +221,7 @@ export default function DashboardPage() {
     setKillzones(patternUpdate.killzones ?? []);
     setPo3s(patternUpdate.po3s ?? []);
     setObs(patternUpdate.obs ?? []);
+    setMssEvents(patternUpdate.mss ?? []);
     // Auto-refresh checklist on each closed candle in live mode
     fetchChecklist(symbol, interval, htfInterval || '1h')
       .then(setChecklist)
@@ -295,6 +301,7 @@ export default function DashboardPage() {
       setKillzones(patternRes.killzones ?? []);
       setPo3s(patternRes.po3s ?? []);
       setObs(patternRes.obs ?? []);
+      setMssEvents(patternRes.mss ?? []);
 
       const po3Count = (patternRes.po3s ?? []).length;
       setStats(
@@ -681,6 +688,7 @@ export default function DashboardPage() {
         killzones={killzones}
         po3s={po3s}
         obs={obs}
+        mssEvents={mssEvents}
         htfBprs={htfBprs}
         turtleData={turtleData}
         visibility={visibility}
