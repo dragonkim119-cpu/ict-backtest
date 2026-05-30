@@ -241,6 +241,9 @@
 - **텔레그램 알림**: 고임팩트 이벤트 2시간 전 자동 발송, `_ALERTED` set으로 중복 방지
 - **프론트 갱신 인터벌**: 사용자 선택 (1/5/15/30/60분), `setInterval` + `useEffect`
 - **필수 환경변수**: `FINNHUB_API_KEY` (finnhub.io 무료 가입)
+- **뉴스 중복 제거**: URL 기반 dedup — Finnhub + RSS 동일 기사 중복 방지
+- **RSS 인코딩**: `resp.content` (bytes) → `ET.fromstring()` — XML 인코딩 선언 존중, mojibake 방지
+- **거시경제 뉴스 필터**: trump/fed/fomc/tariff/inflation/war 등 키워드 포함 기사만 추출
 
 ---
 
