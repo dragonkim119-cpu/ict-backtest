@@ -248,8 +248,9 @@
 - **Y축 자동 스케일**: 차트 우하단 `A` 버튼 → `priceScale('right').applyOptions({ autoScale: true })`
 - **Premium/Discount Zone**: swings 상태로 저장 → `useMemo`로 rangeHigh/Low, pct, CE, OTE 계산. OTE = 61.8%~78.6% Fibonacci retracement into discount
 - **수수료/슬리피지**: `fee_pct`, `slippage_pct` (fraction). 슬리피지 → effective_entry 조정, `fee_r = 2×fee×entry/risk` → net pnl_r에서 차감
-- **Order Block**: 변위(ATR×1.5 or FVG 생성) 직전 마지막 반대방향 캔들. ob_index+type 기준 dedup
-- **BOS/CHoCH**: close 기준 swing 돌파 감지. 추세 방향 동일 → BOS, 반대 → CHoCH
+- **Order Block**: 변위(ATR×1.5 or FVG 생성) 직전 마지막 반대방향 캔들. ob_index+type 기준 dedup. numpy 배열 직접 접근으로 pandas iloc 오버헤드 제거
+- **BOS/CHoCH**: close 기준 swing 돌파 감지. 추세 방향 동일 → BOS, 반대 → CHoCH. O(n²) 포인터 방식 → O(n)으로 최적화
+- **datetime 호환**: `candles["open_time"].values`(np.datetime64) 는 Pydantic v2 거부 → `list(candles["open_time"])`(pd.Timestamp) 사용
 - **MA 인크리멘털**: live tick 시 `setData(N)` 대신 `update(1)` 호출. SMA live = O(period), 렌더링 비용 99% 감소
 
 ## 현실적 한계 (냉정 평가)
