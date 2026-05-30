@@ -80,6 +80,16 @@ def detect_order_blocks(
                 created_time=c["open_time"],
             ))
 
+    # Dedup: same OB candle may be referenced by multiple displacement candles.
+    # Keep earliest created_index per (ob_index, type).
+    seen: dict[tuple[int, str], OrderBlock] = {}
+    for ob in obs:
+        key = (ob.ob_index, ob.type)
+        if key not in seen or ob.created_index < seen[key].created_index:
+            seen[key] = ob
+    obs = list(seen.values())
+    obs.sort(key=lambda o: o.ob_index)
+
     _update_ob_states(obs, candles)
     return obs
 
