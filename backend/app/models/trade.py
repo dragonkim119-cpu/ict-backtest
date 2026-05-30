@@ -5,11 +5,12 @@ from typing import Literal
 
 from pydantic import BaseModel
 
-from app.models.patterns import BPR
+from app.models.patterns import BPR, OrderBlock
 
 
 class EntrySignal(BaseModel):
-    bpr: BPR
+    bpr: BPR | None = None
+    ob: OrderBlock | None = None
     trigger_candle_index: int
     trigger_candle_time: datetime
     entry_index: int

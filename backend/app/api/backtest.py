@@ -33,6 +33,7 @@ def post_backtest(
     kill_zone_only: bool = Query(False),
     require_sweep: bool = Query(False),
     htf_interval: str | None = Query(None),
+    use_ob: bool = Query(False),
 ) -> BacktestResponse:
     try:
         df = load_candles(symbol, interval, start=start, end=end)
@@ -77,6 +78,8 @@ def post_backtest(
         sweeps=result.sweeps,
         htf_interval=htf_interval,
         htf_bprs=htf_bprs if htf_bprs else None,
+        use_ob=use_ob,
+        obs=result.obs if use_ob else None,
     )
 
     return BacktestResponse(

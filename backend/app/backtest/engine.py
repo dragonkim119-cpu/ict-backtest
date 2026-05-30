@@ -12,9 +12,10 @@ import pandas as pd
 from app.backtest.entry import find_entry_signal
 from app.backtest.metrics import compute_metrics
 from app.backtest.mtf_entry import is_within_htf_bpr
+from app.backtest.ob_entry import calc_ob_stop_loss, find_ob_entry_signal
 from app.backtest.simulate import simulate_trade
 from app.backtest.stop import calc_stop_loss, calc_take_profit
-from app.models.patterns import BPR, KillZoneSpan, Sweep, Swing
+from app.models.patterns import BPR, OrderBlock, KillZoneSpan, Sweep, Swing
 from app.models.trade import Metrics, Trade
 
 
@@ -77,6 +78,7 @@ def _params_hash(
     kill_zone_only: bool,
     require_sweep: bool,
     htf_interval: str | None = None,
+    use_ob: bool = False,
 ) -> str:
     payload = json.dumps(
         {
@@ -87,6 +89,7 @@ def _params_hash(
             "kill_zone_only": kill_zone_only,
             "require_sweep": require_sweep,
             "htf_interval": htf_interval,
+            "use_ob": use_ob,
         },
         sort_keys=True,
     )
@@ -103,6 +106,13 @@ def _in_kill_zone(entry_time: datetime, kill_zones: list[KillZoneSpan]) -> bool:
 def _has_recent_sweep(bpr: BPR, sweeps: list[Sweep], lookback: int = 50) -> bool:
     for s in sweeps:
         if bpr.created_index - lookback <= s.sweep_index <= bpr.created_index:
+            return True
+    return False
+
+
+def _has_recent_sweep_ob(ob: OrderBlock, sweeps: list[Sweep], lookback: int = 50) -> bool:
+    for s in sweeps:
+        if ob.created_index - lookback <= s.sweep_index <= ob.created_index:
             return True
     return False
 
@@ -126,37 +136,63 @@ def run_backtest(
     sweeps: list[Sweep] | None = None,
     htf_interval: str | None = None,
     htf_bprs: list[BPR] | None = None,
+    use_ob: bool = False,
+    obs: list[OrderBlock] | None = None,
 ) -> tuple[str, list[Trade], Metrics]:
-    """Execute BPR backtest. Returns (run_id, trades, metrics)."""
-    trades: list[Trade] = []
+    """Execute BPR + (optional) OB backtest. Returns (run_id, trades, metrics)."""
     _kill_zones = kill_zones or []
     _sweeps = sweeps or []
+    # Track used entry indices to prevent duplicate entry on the same candle
+    used_entry_indices: set[int] = set()
+    trades: list[Trade] = []
 
+    # ── BPR entries ───────────────────────────────────────────────────
     for bpr in bprs:
         if require_sweep and not _has_recent_sweep(bpr, _sweeps):
             continue
-
         signal = find_entry_signal(bpr, candles)
         if signal is None:
             continue
-
+        if signal.entry_index in used_entry_indices:
+            continue
         if kill_zone_only and not _in_kill_zone(signal.entry_time, _kill_zones):
             continue
-
         if htf_bprs and not is_within_htf_bpr(signal.entry_price, signal.entry_time, htf_bprs):
             continue
-
         sl = calc_stop_loss(signal, swings)
         if sl is None:
             continue
-
         tp = calc_take_profit(signal.entry_price, sl, signal.direction)
         trade = simulate_trade(signal, sl, tp, candles)
         trades.append(trade)
+        used_entry_indices.add(signal.entry_index)
+
+    # ── OB entries ────────────────────────────────────────────────────
+    if use_ob and obs:
+        for ob in obs:
+            if require_sweep and not _has_recent_sweep_ob(ob, _sweeps):
+                continue
+            signal = find_ob_entry_signal(ob, candles)
+            if signal is None:
+                continue
+            if signal.entry_index in used_entry_indices:
+                continue
+            if kill_zone_only and not _in_kill_zone(signal.entry_time, _kill_zones):
+                continue
+            sl = calc_ob_stop_loss(signal, ob)
+            if sl is None:
+                continue
+            tp = calc_take_profit(signal.entry_price, sl, signal.direction)
+            trade = simulate_trade(signal, sl, tp, candles)
+            trades.append(trade)
+            used_entry_indices.add(signal.entry_index)
+
+    # Sort by entry index for correct sequential metrics
+    trades.sort(key=lambda t: t.entry.entry_index)
 
     metrics = compute_metrics(trades)
     params_hash = _params_hash(
-        symbol, interval, start, end, kill_zone_only, require_sweep, htf_interval
+        symbol, interval, start, end, kill_zone_only, require_sweep, htf_interval, use_ob
     )
     run_id = _run_id(params_hash)
 

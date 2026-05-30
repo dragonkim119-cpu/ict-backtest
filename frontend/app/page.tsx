@@ -138,6 +138,7 @@ export default function DashboardPage() {
   const [btRunId, setBtRunId] = useState('');
   const [killZoneOnly, setKillZoneOnly] = useState(false);
   const [requireSweep, setRequireSweep] = useState(false);
+  const [useOb, setUseOb] = useState(false);
   const [htfInterval, setHtfInterval] = useState('');
   const [htfBprs, setHtfBprs] = useState<BPR[]>([]);
   const [checklist, setChecklist] = useState<ChecklistResult | null>(null);
@@ -314,7 +315,7 @@ export default function DashboardPage() {
     try {
       const start = startDate ? `${startDate}T00:00:00Z` : undefined;
       const end = endDate ? `${endDate}T23:59:59Z` : undefined;
-      const result = await runBacktest(symbol, interval, start, end, killZoneOnly, requireSweep, htfInterval || undefined);
+      const result = await runBacktest(symbol, interval, start, end, killZoneOnly, requireSweep, htfInterval || undefined, useOb);
       setBtMetrics(result.metrics);
       setBtTrades(result.trades);
       setBtRunId(result.run_id);
@@ -606,6 +607,15 @@ export default function DashboardPage() {
             className="accent-purple-500"
           />
           <span className="text-xs text-gray-400">Req. Sweep</span>
+        </label>
+        <label className="flex items-center gap-1.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={useOb}
+            onChange={(e) => setUseOb(e.target.checked)}
+            className="accent-blue-500"
+          />
+          <span className="text-xs text-blue-400">+ OB</span>
         </label>
 
         <div className="flex items-center gap-1.5">
