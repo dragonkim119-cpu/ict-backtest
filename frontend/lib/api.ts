@@ -70,6 +70,8 @@ export async function runBacktest(
   requireSweep?: boolean,
   htfInterval?: string,
   useOb?: boolean,
+  feePct?: number,
+  slippagePct?: number,
 ): Promise<BacktestResponse> {
   const res = await fetch(
     `${BASE}/api/backtest${qs({
@@ -81,6 +83,8 @@ export async function runBacktest(
       require_sweep: requireSweep ? 'true' : undefined,
       htf_interval: htfInterval || undefined,
       use_ob: useOb ? 'true' : undefined,
+      fee_pct: feePct ? String(feePct) : undefined,
+      slippage_pct: slippagePct ? String(slippagePct) : undefined,
     })}`,
     { method: 'POST' },
   );

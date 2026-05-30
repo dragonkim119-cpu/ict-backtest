@@ -146,6 +146,8 @@ export default function DashboardPage() {
   const [killZoneOnly, setKillZoneOnly] = useState(false);
   const [requireSweep, setRequireSweep] = useState(false);
   const [useOb, setUseOb] = useState(false);
+  const [feePct, setFeePct] = useState(0.04);     // % (0.04 = Binance taker)
+  const [slippagePct, setSlippagePct] = useState(0.0);
   const [htfInterval, setHtfInterval] = useState('');
   const [htfBprs, setHtfBprs] = useState<BPR[]>([]);
   const [checklist, setChecklist] = useState<ChecklistResult | null>(null);
@@ -325,7 +327,7 @@ export default function DashboardPage() {
     try {
       const start = startDate ? `${startDate}T00:00:00Z` : undefined;
       const end = endDate ? `${endDate}T23:59:59Z` : undefined;
-      const result = await runBacktest(symbol, interval, start, end, killZoneOnly, requireSweep, htfInterval || undefined, useOb);
+      const result = await runBacktest(symbol, interval, start, end, killZoneOnly, requireSweep, htfInterval || undefined, useOb, feePct / 100, slippagePct / 100);
       setBtMetrics(result.metrics);
       setBtTrades(result.trades);
       setBtRunId(result.run_id);
@@ -646,6 +648,25 @@ export default function DashboardPage() {
           />
           <span className="text-xs text-blue-400">+ OB</span>
         </label>
+
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-400">Fee%</span>
+          <input
+            type="number" min="0" max="1" step="0.01"
+            value={feePct}
+            onChange={(e) => setFeePct(Number(e.target.value))}
+            className="w-14 px-1.5 py-1 rounded bg-[#1e2130] text-white text-xs border border-[#2a2e39] text-right"
+          />
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-400">Slip%</span>
+          <input
+            type="number" min="0" max="1" step="0.01"
+            value={slippagePct}
+            onChange={(e) => setSlippagePct(Number(e.target.value))}
+            className="w-14 px-1.5 py-1 rounded bg-[#1e2130] text-white text-xs border border-[#2a2e39] text-right"
+          />
+        </div>
 
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-400">HTF:</span>

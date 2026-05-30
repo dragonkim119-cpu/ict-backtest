@@ -34,6 +34,8 @@ def post_backtest(
     require_sweep: bool = Query(False),
     htf_interval: str | None = Query(None),
     use_ob: bool = Query(False),
+    fee_pct: float = Query(0.0, ge=0.0, le=0.01),
+    slippage_pct: float = Query(0.0, ge=0.0, le=0.01),
 ) -> BacktestResponse:
     try:
         df = load_candles(symbol, interval, start=start, end=end)
@@ -80,6 +82,8 @@ def post_backtest(
         htf_bprs=htf_bprs if htf_bprs else None,
         use_ob=use_ob,
         obs=result.obs if use_ob else None,
+        fee_pct=fee_pct,
+        slippage_pct=slippage_pct,
     )
 
     return BacktestResponse(

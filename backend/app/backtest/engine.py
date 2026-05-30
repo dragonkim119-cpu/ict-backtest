@@ -79,6 +79,8 @@ def _params_hash(
     require_sweep: bool,
     htf_interval: str | None = None,
     use_ob: bool = False,
+    fee_pct: float = 0.0,
+    slippage_pct: float = 0.0,
 ) -> str:
     payload = json.dumps(
         {
@@ -94,6 +96,7 @@ def _params_hash(
         sort_keys=True,
     )
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
+
 
 
 def _in_kill_zone(entry_time: datetime, kill_zones: list[KillZoneSpan]) -> bool:
@@ -138,6 +141,8 @@ def run_backtest(
     htf_bprs: list[BPR] | None = None,
     use_ob: bool = False,
     obs: list[OrderBlock] | None = None,
+    fee_pct: float = 0.0,
+    slippage_pct: float = 0.0,
 ) -> tuple[str, list[Trade], Metrics]:
     """Execute BPR + (optional) OB backtest. Returns (run_id, trades, metrics)."""
     _kill_zones = kill_zones or []
@@ -163,7 +168,7 @@ def run_backtest(
         if sl is None:
             continue
         tp = calc_take_profit(signal.entry_price, sl, signal.direction)
-        trade = simulate_trade(signal, sl, tp, candles)
+        trade = simulate_trade(signal, sl, tp, candles, fee_pct=fee_pct, slippage_pct=slippage_pct)
         trades.append(trade)
         used_entry_indices.add(signal.entry_index)
 
@@ -183,7 +188,7 @@ def run_backtest(
             if sl is None:
                 continue
             tp = calc_take_profit(signal.entry_price, sl, signal.direction)
-            trade = simulate_trade(signal, sl, tp, candles)
+            trade = simulate_trade(signal, sl, tp, candles, fee_pct=fee_pct, slippage_pct=slippage_pct)
             trades.append(trade)
             used_entry_indices.add(signal.entry_index)
 
@@ -192,7 +197,8 @@ def run_backtest(
 
     metrics = compute_metrics(trades)
     params_hash = _params_hash(
-        symbol, interval, start, end, kill_zone_only, require_sweep, htf_interval, use_ob
+        symbol, interval, start, end, kill_zone_only, require_sweep, htf_interval, use_ob,
+        fee_pct, slippage_pct
     )
     run_id = _run_id(params_hash)
 
