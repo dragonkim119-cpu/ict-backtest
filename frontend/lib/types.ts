@@ -301,6 +301,29 @@ export type CandlesResponse = {
   candles: Candle[];
 };
 
+export type MSSEvent = {
+  type: 'bos' | 'choch';
+  direction: 'bull' | 'bear';
+  level: number;
+  break_index: number;
+  break_time: string;
+  swing_time: string;
+};
+
+export type OrderBlock = {
+  type: 'bull' | 'bear';
+  top: number;
+  bottom: number;
+  ob_time: string;
+  ob_index: number;
+  created_time: string;
+  created_index: number;
+  mitigated: boolean;
+  mitigated_time: string | null;
+  invalidated: boolean;
+  invalidated_time: string | null;
+};
+
 export type PatternsResponse = {
   symbol: string;
   interval: string;
@@ -312,6 +335,8 @@ export type PatternsResponse = {
   sweeps: Sweep[];
   killzones: KillZoneSpan[];
   po3s: PO3[];
+  obs: OrderBlock[];
+  mss: MSSEvent[];
 };
 
 export type EconomicEvent = {

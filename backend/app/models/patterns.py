@@ -82,3 +82,28 @@ class PO3(BaseModel):
     manip_extreme: float
     distrib_start_time: datetime
     distrib_end_time: datetime | None = None
+
+
+class MSSEvent(BaseModel):
+    type: Literal["bos", "choch"]
+    direction: Literal["bull", "bear"]
+    level: float
+    break_index: int
+    break_time: datetime
+    swing_time: datetime
+
+
+class OrderBlock(BaseModel):
+    model_config = ConfigDict(frozen=False)
+
+    type: Literal["bull", "bear"]
+    top: float
+    bottom: float
+    ob_time: datetime
+    ob_index: int
+    created_time: datetime
+    created_index: int
+    mitigated: bool = False
+    mitigated_time: datetime | None = None
+    invalidated: bool = False
+    invalidated_time: datetime | None = None

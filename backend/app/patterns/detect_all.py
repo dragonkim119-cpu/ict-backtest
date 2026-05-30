@@ -11,6 +11,8 @@ from app.models.patterns import (
     PO3,
     KillZoneSpan,
     LiquidityPool,
+    MSSEvent,
+    OrderBlock,
     Sweep,
     Swing,
 )
@@ -20,6 +22,8 @@ from app.patterns.fvg import detect_fvgs, update_fvg_states
 from app.patterns.ifvg import derive_ifvgs
 from app.patterns.killzone import detect_killzones
 from app.patterns.liquidity import _Pool, detect_liquidity_pools, detect_sweeps
+from app.patterns.mss import detect_mss
+from app.patterns.ob import detect_order_blocks
 from app.patterns.po3 import detect_po3
 from app.patterns.swings import detect_swings
 
@@ -34,6 +38,8 @@ class PatternResult:
     bprs: list[BPR] = field(default_factory=list)
     killzones: list[KillZoneSpan] = field(default_factory=list)
     po3s: list[PO3] = field(default_factory=list)
+    obs: list[OrderBlock] = field(default_factory=list)
+    mss: list[MSSEvent] = field(default_factory=list)
 
 
 def detect_all_patterns(
@@ -76,12 +82,19 @@ def detect_all_patterns(
     # 7. Kill Zone
     killzones = detect_killzones(candles)
 
-    # 8. PO3 (London + NY_AM) — share computed ATR
+    # 8. PO3 (London + NY_AM) + OB — share computed ATR
     atr = compute_atr(candles)
     po3s = (
         detect_po3(candles, atr=atr, session="London")
         + detect_po3(candles, atr=atr, session="NY_AM")
     )
+
+    # 9. Order Block
+    obs = detect_order_blocks(candles, atr=atr, fvgs=fvgs)
+    obs = [ob for ob in obs if not ob.invalidated]
+
+    # 10. Market Structure Shift (BOS / CHoCH)
+    mss = detect_mss(candles, swings)
 
     # Convert internal _Pool → Pydantic LiquidityPool
     liquidity_pools = [p.to_pydantic() for p in pools]
@@ -95,4 +108,6 @@ def detect_all_patterns(
         bprs=bprs,
         killzones=killzones,
         po3s=po3s,
+        obs=obs,
+        mss=mss,
     )
