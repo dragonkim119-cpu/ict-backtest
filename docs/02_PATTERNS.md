@@ -672,6 +672,101 @@ def detect_order_blocks(
 
 ---
 
+## 10. Market Structure Shift — BOS / CHoCH
+
+### 정의
+
+| 용어 | 의미 |
+|---|---|
+| **BOS** (Break of Structure) | 현재 추세 방향으로 직전 스윙을 돌파 — **추세 지속** 신호 |
+| **CHoCH** (Change of Character) | 현재 추세 **반대** 방향으로 직전 스윙을 돌파 — **추세 전환** 신호 |
+
+- 돌파 기준: 캔들 **close** 기준 (wick 무시)
+- 스윙 기준: `detect_swings()` 결과 재사용
+
+### 추세 판단 로직
+
+```
+초기 상태: neutral
+
+close > 직전 swing high → 상방 돌파
+  ├─ 직전 direction == "bear"  →  CHoCH (bull)  [추세 전환]
+  └─ 직전 direction != "bear"  →  BOS   (bull)  [추세 지속]
+  → direction = "bull"
+
+close < 직전 swing low → 하방 돌파
+  ├─ 직전 direction == "bull"  →  CHoCH (bear)
+  └─ 직전 direction != "bull"  →  BOS   (bear)
+  → direction = "bear"
+```
+
+### 파라미터
+- 돌파 판정: `close` 기준 (wick 제외)
+- 동일 스윙 돌파는 한 번만 이벤트 생성 (중복 방지)
+
+### 의사 코드
+```python
+@dataclass
+class MSSEvent:
+    type:        Literal["bos", "choch"]
+    direction:   Literal["bull", "bear"]
+    level:       float       # 돌파된 스윙 가격
+    break_index: int         # 돌파 캔들 인덱스
+    break_time:  datetime
+    swing_time:  datetime    # 돌파된 스윙 생성 시간
+
+def detect_mss(candles: pd.DataFrame, swings: list[Swing]) -> list[MSSEvent]:
+    highs = sorted([s for s in swings if s.type == "high"], key=lambda s: s.index)
+    lows  = sorted([s for s in swings if s.type == "low"],  key=lambda s: s.index)
+
+    events: list[MSSEvent] = []
+    last_direction: str | None = None
+    last_high_broken: Swing | None = None
+    last_low_broken:  Swing | None = None
+
+    for i in range(len(candles)):
+        c = candles.iloc[i]
+        recent_highs = [h for h in highs if h.index < i]
+        recent_lows  = [l for l in lows  if l.index < i]
+        if not recent_highs or not recent_lows:
+            continue
+
+        last_high = recent_highs[-1]
+        last_low  = recent_lows[-1]
+
+        if c["close"] > last_high.price and last_high is not last_high_broken:
+            etype = "choch" if last_direction == "bear" else "bos"
+            events.append(MSSEvent(etype, "bull", last_high.price, i,
+                                   c["open_time"], last_high.time))
+            last_high_broken = last_high
+            last_direction = "bull"
+
+        elif c["close"] < last_low.price and last_low is not last_low_broken:
+            etype = "choch" if last_direction == "bull" else "bos"
+            events.append(MSSEvent(etype, "bear", last_low.price, i,
+                                   c["open_time"], last_low.time))
+            last_low_broken = last_low
+            last_direction = "bear"
+
+    return events
+```
+
+### 시각화
+- **BOS**: 돌파 캔들에 작은 마커 + 레이블 `BOS↑` / `BOS↓`
+  - 색상: 파랑(bull) / 회색(bear)
+- **CHoCH**: 더 눈에 띄는 마커 + `CHoCH↑` / `CHoCH↓`
+  - 색상: 주황(bull) / 빨강(bear), 사이즈 2
+
+### 단위 테스트 케이스
+| 케이스 | 기대 결과 |
+|---|---|
+| 상승 후 swing high 돌파 | BOS bull |
+| 하락 중 swing high 돌파 | CHoCH bull |
+| 상승 중 swing low 이탈 | CHoCH bear |
+| 동일 스윙 연속 돌파 | 이벤트 1개만 |
+
+---
+
 ## 파라미터 요약 (한 곳에 모음)
 
 ```python
