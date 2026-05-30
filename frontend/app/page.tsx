@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   fetchCandleRange,
@@ -67,6 +67,11 @@ interface Visibility {
   po3: boolean;
   turtle_s1: boolean;
   turtle_s2: boolean;
+  ma20: boolean;
+  ma50: boolean;
+  ma200: boolean;
+  ema50: boolean;
+  vwap: boolean;
 }
 
 const VISIBILITY_LABELS: { key: keyof Visibility; label: string; color: string }[] = [
@@ -79,6 +84,11 @@ const VISIBILITY_LABELS: { key: keyof Visibility; label: string; color: string }
   { key: 'po3', label: 'PO3/AMD', color: '#8b5cf6' },
   { key: 'turtle_s1', label: 'Turtle S1', color: '#22c55e' },
   { key: 'turtle_s2', label: 'Turtle S2', color: '#60a5fa' },
+  { key: 'ma20', label: 'MA 20', color: '#f59e0b' },
+  { key: 'ma50', label: 'MA 50', color: '#3b82f6' },
+  { key: 'ma200', label: 'MA 200', color: '#ef4444' },
+  { key: 'ema50', label: 'EMA 50', color: '#a855f7' },
+  { key: 'vwap', label: 'VWAP', color: '#6b7280' },
 ];
 
 export default function DashboardPage() {
@@ -96,6 +106,11 @@ export default function DashboardPage() {
     po3: true,
     turtle_s1: false,
     turtle_s2: false,
+    ma20: false,
+    ma50: false,
+    ma200: false,
+    ema50: false,
+    vwap: false,
   });
   const [turtleData, setTurtleData] = useState<TurtleDonchianResponse | null>(null);
 
@@ -376,6 +391,49 @@ export default function DashboardPage() {
     setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const maDistances = useMemo(() => {
+    if (candles.length === 0) return null;
+    const last = candles[candles.length - 1].close;
+
+    const smaLast = (period: number) => {
+      if (candles.length < period) return null;
+      let sum = 0;
+      for (let i = candles.length - period; i < candles.length; i++) sum += candles[i].close;
+      return sum / period;
+    };
+
+    const emaLast = (period: number) => {
+      if (candles.length < period) return null;
+      const k = 2 / (period + 1);
+      let val = 0;
+      for (let i = 0; i < period; i++) val += candles[i].close;
+      val /= period;
+      for (let i = period; i < candles.length; i++) val = candles[i].close * k + val * (1 - k);
+      return val;
+    };
+
+    const entries: { label: string; color: string; pct: number }[] = [];
+    if (visibility.ma20)  { const v = smaLast(20);  if (v) entries.push({ label: 'MA20',  color: '#f59e0b', pct: (last - v) / v * 100 }); }
+    if (visibility.ma50)  { const v = smaLast(50);  if (v) entries.push({ label: 'MA50',  color: '#3b82f6', pct: (last - v) / v * 100 }); }
+    if (visibility.ma200) { const v = smaLast(200); if (v) entries.push({ label: 'MA200', color: '#ef4444', pct: (last - v) / v * 100 }); }
+    if (visibility.ema50) { const v = emaLast(50); if (v) entries.push({ label: 'EMA50', color: '#a855f7', pct: (last - v) / v * 100 }); }
+
+    if (visibility.vwap && candles.length > 0) {
+      let cumTV = 0, cumVol = 0, currentDay = '';
+      for (const c of candles) {
+        const day = c.open_time.slice(0, 10);
+        if (day !== currentDay) { cumTV = 0; cumVol = 0; currentDay = day; }
+        const tp = (c.high + c.low + c.close) / 3;
+        cumTV += tp * c.volume;
+        cumVol += c.volume;
+      }
+      const v = cumTV / cumVol;
+      entries.push({ label: 'VWAP', color: '#d1d4dc', pct: (last - v) / v * 100 });
+    }
+
+    return entries.length > 0 ? entries : null;
+  }, [candles, visibility.ma20, visibility.ma50, visibility.ma200, visibility.ema50, visibility.vwap]);
+
   return (
     <main className="min-h-screen p-4" style={{ background: '#0d0f17' }}>
       <div className="flex items-center gap-4 mb-4">
@@ -542,6 +600,20 @@ export default function DashboardPage() {
       {/* Status */}
       {stats && <p className="mb-2 text-xs text-gray-400 font-mono">{stats}</p>}
       {errorMsg && <p className="mb-2 text-xs text-red-400 font-mono">Error: {errorMsg}</p>}
+
+      {/* MA distance panel */}
+      {maDistances && (
+        <div className="flex flex-wrap gap-3 mb-2">
+          {maDistances.map(({ label, color, pct }) => (
+            <span key={label} className="flex items-center gap-1 text-xs font-mono">
+              <span style={{ color }}>{label}</span>
+              <span className={pct >= 0 ? 'text-green-400' : 'text-red-400'}>
+                {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+              </span>
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Chart */}
       <CandleChart

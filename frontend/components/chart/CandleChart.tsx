@@ -40,6 +40,11 @@ interface Visibility {
   po3: boolean;
   turtle_s1: boolean;
   turtle_s2: boolean;
+  ma20: boolean;
+  ma50: boolean;
+  ma200: boolean;
+  ema50: boolean;
+  vwap: boolean;
 }
 
 interface Props {
@@ -91,6 +96,11 @@ export default function CandleChart({
   const s1LowerRef = useRef<ISeriesApi<'Line'> | null>(null);
   const s2UpperRef = useRef<ISeriesApi<'Line'> | null>(null);
   const s2LowerRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const ma20Ref = useRef<ISeriesApi<'Line'> | null>(null);
+  const ma50Ref = useRef<ISeriesApi<'Line'> | null>(null);
+  const ma200Ref = useRef<ISeriesApi<'Line'> | null>(null);
+  const ema50Ref = useRef<ISeriesApi<'Line'> | null>(null);
+  const vwapRef = useRef<ISeriesApi<'Line'> | null>(null);
 
   // Create chart once
   useEffect(() => {
@@ -143,6 +153,14 @@ export default function CandleChart({
     s2UpperRef.current = chart.addSeries(LineSeries, { ...lineOpts, color: 'rgba(96,165,250,0.7)', lineStyle: LineStyle.Dashed });
     s2LowerRef.current = chart.addSeries(LineSeries, { ...lineOpts, color: 'rgba(96,165,250,0.5)', lineStyle: LineStyle.Dotted });
 
+    // Moving average line series
+    const maOpts = { lineWidth: 1 as const, lastValueVisible: true, priceLineVisible: false };
+    ma20Ref.current = chart.addSeries(LineSeries, { ...maOpts, color: 'rgba(245,158,11,0.85)', title: 'MA20' });
+    ma50Ref.current = chart.addSeries(LineSeries, { ...maOpts, color: 'rgba(59,130,246,0.85)', title: 'MA50' });
+    ma200Ref.current = chart.addSeries(LineSeries, { ...maOpts, color: 'rgba(239,68,68,0.85)', lineWidth: 2 as const, title: 'MA200' });
+    ema50Ref.current = chart.addSeries(LineSeries, { ...maOpts, color: 'rgba(168,85,247,0.85)', lineStyle: LineStyle.Dashed, title: 'EMA50' });
+    vwapRef.current = chart.addSeries(LineSeries, { lineWidth: 2 as const, lastValueVisible: true, priceLineVisible: false, color: 'rgba(255,255,255,0.8)', title: 'VWAP' });
+
     // OHLC crosshair tooltip
     chart.subscribeCrosshairMove((param) => {
       const tooltip = tooltipRef.current;
@@ -160,10 +178,30 @@ export default function CandleChart({
       const up = bar.close >= bar.open;
       const color = up ? '#26a69a' : '#ef5350';
       const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+      const getMaVal = (ref: React.RefObject<ISeriesApi<'Line'> | null>) => {
+        if (!ref.current) return null;
+        const d = param.seriesData.get(ref.current) as { value: number } | undefined;
+        return d?.value ?? null;
+      };
+      const ma20Val = getMaVal(ma20Ref);
+      const ma50Val = getMaVal(ma50Ref);
+      const ma200Val = getMaVal(ma200Ref);
+      const ema50Val = getMaVal(ema50Ref);
+      const vwapVal = getMaVal(vwapRef);
+      const maHtml = [
+        ma20Val !== null ? `<span style="color:#f59e0b">MA20 <b>${fmt(ma20Val)}</b></span>` : '',
+        ma50Val !== null ? `<span style="color:#3b82f6">MA50 <b>${fmt(ma50Val)}</b></span>` : '',
+        ma200Val !== null ? `<span style="color:#ef4444">MA200 <b>${fmt(ma200Val)}</b></span>` : '',
+        ema50Val !== null ? `<span style="color:#a855f7">EMA50 <b>${fmt(ema50Val)}</b></span>` : '',
+        vwapVal !== null ? `<span style="color:rgba(255,255,255,0.9)">VWAP <b>${fmt(vwapVal)}</b></span>` : '',
+      ].filter(Boolean).join('  ');
+
       tooltip.innerHTML =
         `<span style="color:${color};font-weight:700">` +
         `O <b>${fmt(bar.open)}</b>  H <b>${fmt(bar.high)}</b>  L <b>${fmt(bar.low)}</b>  C <b>${fmt(bar.close)}</b>` +
-        `</span>`;
+        `</span>` +
+        (maHtml ? `&nbsp;&nbsp;&nbsp;<span style="opacity:0.75">${maHtml}</span>` : '');
       tooltip.style.display = 'block';
     });
 
@@ -181,6 +219,11 @@ export default function CandleChart({
       s1LowerRef.current = null;
       s2UpperRef.current = null;
       s2LowerRef.current = null;
+      ma20Ref.current = null;
+      ma50Ref.current = null;
+      ma200Ref.current = null;
+      ema50Ref.current = null;
+      vwapRef.current = null;
     };
   }, []);
 
@@ -442,6 +485,48 @@ export default function CandleChart({
       }
     }
 
+    // MA crossover markers
+    const showCross2050 = visibility.ma20 && visibility.ma50;
+    const showCross50200 = visibility.ma50 && visibility.ma200;
+    if (showCross2050 || showCross50200) {
+      const cs = candles; // candlesRef.current in overlay effect scope
+      const smaArr = (period: number): number[] => {
+        const out = new Array(cs.length).fill(NaN) as number[];
+        let sum = 0;
+        for (let i = 0; i < cs.length; i++) {
+          sum += cs[i].close;
+          if (i >= period) sum -= cs[i - period].close;
+          if (i >= period - 1) out[i] = sum / period;
+        }
+        return out;
+      };
+      const ma20arr = showCross2050 ? smaArr(20) : [];
+      const ma50arr = (showCross2050 || showCross50200) ? smaArr(50) : [];
+      const ma200arr = showCross50200 ? smaArr(200) : [];
+
+      for (let i = 1; i < cs.length; i++) {
+        const t = toUTC(cs[i].open_time);
+        if (showCross2050 && !isNaN(ma20arr[i - 1]) && !isNaN(ma20arr[i])) {
+          const wasBelow = ma20arr[i - 1] < ma50arr[i - 1];
+          const isAbove = ma20arr[i] >= ma50arr[i];
+          if (wasBelow && isAbove) {
+            allMarkers.push({ time: t, position: 'belowBar', color: '#f59e0b', shape: 'circle', size: 1, text: '20×50↑' });
+          } else if (!wasBelow && !isAbove) {
+            allMarkers.push({ time: t, position: 'aboveBar', color: '#3b82f6', shape: 'circle', size: 1, text: '20×50↓' });
+          }
+        }
+        if (showCross50200 && !isNaN(ma50arr[i - 1]) && !isNaN(ma200arr[i - 1])) {
+          const wasBelow = ma50arr[i - 1] < ma200arr[i - 1];
+          const isAbove = ma50arr[i] >= ma200arr[i];
+          if (wasBelow && isAbove) {
+            allMarkers.push({ time: t, position: 'belowBar', color: '#FFD700', shape: 'arrowUp', size: 2, text: 'GX' });
+          } else if (!wasBelow && !isAbove) {
+            allMarkers.push({ time: t, position: 'aboveBar', color: '#ef4444', shape: 'arrowDown', size: 2, text: 'DX' });
+          }
+        }
+      }
+    }
+
     if (allMarkers.length > 0) {
       allMarkers.sort((a, b) => (a.time as number) - (b.time as number));
       markersPluginRef.current = createSeriesMarkers<Time>(series, allMarkers);
@@ -471,6 +556,62 @@ export default function CandleChart({
       s2LowerRef.current.setData(data);
     }
   }, [turtleData, visibility.turtle_s1, visibility.turtle_s2]);
+
+  // Recompute MA series whenever candles or MA visibility changes
+  useEffect(() => {
+    const sma = (period: number): { time: ReturnType<typeof toUTC>; value: number }[] => {
+      const result: { time: ReturnType<typeof toUTC>; value: number }[] = [];
+      let sum = 0;
+      for (let i = 0; i < candles.length; i++) {
+        sum += candles[i].close;
+        if (i >= period) sum -= candles[i - period].close;
+        if (i >= period - 1) result.push({ time: toUTC(candles[i].open_time), value: sum / period });
+      }
+      return result;
+    };
+
+    if (ma20Ref.current) ma20Ref.current.setData(visibility.ma20 && candles.length >= 20 ? sma(20) : []);
+    if (ma50Ref.current) ma50Ref.current.setData(visibility.ma50 && candles.length >= 50 ? sma(50) : []);
+    if (ma200Ref.current) ma200Ref.current.setData(visibility.ma200 && candles.length >= 200 ? sma(200) : []);
+
+    if (ema50Ref.current) {
+      if (visibility.ema50 && candles.length >= 50) {
+        const k = 2 / 51;
+        let seed = 0;
+        for (let i = 0; i < 50; i++) seed += candles[i].close;
+        let prev = seed / 50;
+        const emaData: { time: ReturnType<typeof toUTC>; value: number }[] = [
+          { time: toUTC(candles[49].open_time), value: prev },
+        ];
+        for (let i = 50; i < candles.length; i++) {
+          prev = candles[i].close * k + prev * (1 - k);
+          emaData.push({ time: toUTC(candles[i].open_time), value: prev });
+        }
+        ema50Ref.current.setData(emaData);
+      } else {
+        ema50Ref.current.setData([]);
+      }
+    }
+    if (vwapRef.current) {
+      if (visibility.vwap && candles.length > 0) {
+        const vwapData: { time: ReturnType<typeof toUTC>; value: number }[] = [];
+        let cumTV = 0;
+        let cumVol = 0;
+        let currentDay = '';
+        for (const c of candles) {
+          const day = c.open_time.slice(0, 10);
+          if (day !== currentDay) { cumTV = 0; cumVol = 0; currentDay = day; }
+          const tp = (c.high + c.low + c.close) / 3;
+          cumTV += tp * c.volume;
+          cumVol += c.volume;
+          vwapData.push({ time: toUTC(c.open_time), value: cumTV / cumVol });
+        }
+        vwapRef.current.setData(vwapData);
+      } else {
+        vwapRef.current.setData([]);
+      }
+    }
+  }, [candles, visibility.ma20, visibility.ma50, visibility.ma200, visibility.ema50, visibility.vwap]);
 
   return (
     <div className="relative w-full">
