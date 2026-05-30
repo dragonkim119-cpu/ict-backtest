@@ -210,6 +210,7 @@
 - **OHLC 툴팁**: `chart.subscribeCrosshairMove()` → 좌상단 O/H/L/C + MA/EMA/VWAP 값 표시
 - **auto-scroll 조건**: `lr.to >= candles.length - 3` 일 때만 `scrollToRealTime()` 호출
 - **날짜 자동 세팅**: 마운트 시 `fetchCandleRange()` 호출 → 실제 데이터 범위로 자동 갱신
+- **탭 전환 시 차트 보존**: Chart 섹션을 `display:none`으로 숨김 (조건부 렌더링 금지) — 언마운트 시 Y축 상태·pan 위치 초기화되는 문제 방지. ResizeObserver는 `clientWidth > 0` 가드 필수
 - **MA/EMA/VWAP**: MA effect 내 `dedup(sort+중복제거)` 필수 — Parquet 데이터에 역순/중복 타임스탬프 존재 가능
 - **VWAP 리셋**: `open_time.slice(0,10)` UTC 날짜 기준 일별 리셋
 - **MA 이격률**: `useMemo` — candles/visibility 변경 시만 재계산, 마지막 캔들 기준
