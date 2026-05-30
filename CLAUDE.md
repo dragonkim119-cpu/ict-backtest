@@ -217,6 +217,12 @@
 - **load_dotenv**: `main.py`에서 `parents[1]/.env` (= `backend/.env`) 로드
 - **.gitignore**: `backend/.env` 포함
 
+### 보안
+- **Path Traversal 방어**: `loader._parquet_path()` — `resolve()` 후 `DATA_DIR/candles/` 내부인지 `startswith` 검증. symbol/interval에 `../../` 포함 시 `ValueError` → 400
+- **ingest days 상한**: `IngestRequest.days = Field(ge=1, le=3650)` — 최대 10년, 초과 시 422
+- **네트워크 격리**: uvicorn `--host 127.0.0.1` (로컬 전용), CORS `localhost:3000/3001`만 허용
+- **시크릿 관리**: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` → `.env` (gitignore), 런타임 `os.getenv()`
+
 ---
 
 ## 기술 스택
