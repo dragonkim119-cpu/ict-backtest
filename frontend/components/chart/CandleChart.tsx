@@ -627,6 +627,27 @@ export default function CandleChart({
 
   return (
     <div className="relative w-full">
+      <button
+        onClick={() => chartRef.current?.priceScale('right').applyOptions({ autoScale: true })}
+        title="Auto scale Y-axis"
+        style={{
+          position: 'absolute',
+          bottom: 40,
+          right: 12,
+          zIndex: 10,
+          padding: '3px 7px',
+          fontSize: 11,
+          fontFamily: 'monospace',
+          background: 'rgba(42,46,57,0.85)',
+          color: '#d1d4dc',
+          border: '1px solid #363c4e',
+          borderRadius: 4,
+          cursor: 'pointer',
+          lineHeight: 1.4,
+        }}
+      >
+        A
+      </button>
       <div
         ref={tooltipRef}
         style={{
