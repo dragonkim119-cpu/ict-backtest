@@ -99,6 +99,7 @@ export default function CandleChart({
   const candlesRef = useRef(candles);
   candlesRef.current = candles;
   const prevLengthRef = useRef(0);
+  const prevMaLengthRef = useRef(0);
   const lastSeriesTimeRef = useRef<number>(0);
   const s1UpperRef = useRef<ISeriesApi<'Line'> | null>(null);
   const s1LowerRef = useRef<ISeriesApi<'Line'> | null>(null);
@@ -637,10 +638,14 @@ export default function CandleChart({
     }
   }, [turtleData, visibility.turtle_s1, visibility.turtle_s2]);
 
-  // Recompute MA series whenever candles or MA visibility changes
+  // Recompute MA series whenever candles or MA visibility changes.
+  // Live tick path: calls series.update(1 point) instead of setData(N points)
+  // to avoid costly full chart re-render on every WebSocket tick.
   useEffect(() => {
+    if (candles.length === 0) return;
+
     type LP = { time: ReturnType<typeof toUTC>; value: number };
-    // lightweight-charts requires strictly ascending unique timestamps
+
     const dedup = (arr: LP[]): LP[] => {
       arr.sort((a, b) => (a.time as number) - (b.time as number));
       const seen = new Set<number>();
@@ -652,6 +657,51 @@ export default function CandleChart({
       });
     };
 
+    const last = candles[candles.length - 1];
+    const lastTime = toUTC(last.open_time);
+    const isLiveTick =
+      liveMode &&
+      prevMaLengthRef.current > 0 &&
+      Math.abs(candles.length - prevMaLengthRef.current) <= 1;
+    prevMaLengthRef.current = candles.length;
+
+    if (isLiveTick) {
+      // ── Live tick: update only the last point ─────────────────────
+      const smaLast = (period: number): number | null => {
+        if (candles.length < period) return null;
+        let sum = 0;
+        for (let i = candles.length - period; i < candles.length; i++) sum += candles[i].close;
+        return sum / period;
+      };
+
+      if (ma20Ref.current && visibility.ma20) { const v = smaLast(20); if (v !== null) ma20Ref.current.update({ time: lastTime, value: v }); }
+      if (ma50Ref.current && visibility.ma50) { const v = smaLast(50); if (v !== null) ma50Ref.current.update({ time: lastTime, value: v }); }
+      if (ma200Ref.current && visibility.ma200) { const v = smaLast(200); if (v !== null) ma200Ref.current.update({ time: lastTime, value: v }); }
+
+      if (ema50Ref.current && visibility.ema50 && candles.length >= 50) {
+        const k = 2 / 51;
+        let seed = 0;
+        for (let i = 0; i < 50; i++) seed += candles[i].close;
+        let val = seed / 50;
+        for (let i = 50; i < candles.length; i++) val = candles[i].close * k + val * (1 - k);
+        ema50Ref.current.update({ time: lastTime, value: val });
+      }
+
+      if (vwapRef.current && visibility.vwap) {
+        let cumTV = 0, cumVol = 0, currentDay = '';
+        for (const c of candles) {
+          const day = c.open_time.slice(0, 10);
+          if (day !== currentDay) { cumTV = 0; cumVol = 0; currentDay = day; }
+          const tp = (c.high + c.low + c.close) / 3;
+          cumTV += tp * c.volume;
+          cumVol += c.volume;
+        }
+        if (cumVol > 0) vwapRef.current.update({ time: lastTime, value: cumTV / cumVol });
+      }
+      return;
+    }
+
+    // ── Full reload: setData for all series ───────────────────────
     const sma = (period: number): LP[] => {
       const result: LP[] = [];
       let sum = 0;
@@ -687,9 +737,7 @@ export default function CandleChart({
     if (vwapRef.current) {
       if (visibility.vwap && candles.length > 0) {
         const vwapData: LP[] = [];
-        let cumTV = 0;
-        let cumVol = 0;
-        let currentDay = '';
+        let cumTV = 0, cumVol = 0, currentDay = '';
         for (const c of candles) {
           const day = c.open_time.slice(0, 10);
           if (day !== currentDay) { cumTV = 0; cumVol = 0; currentDay = day; }
@@ -703,7 +751,7 @@ export default function CandleChart({
         vwapRef.current.setData([]);
       }
     }
-  }, [candles, visibility.ma20, visibility.ma50, visibility.ma200, visibility.ema50, visibility.vwap]);
+  }, [candles, liveMode, visibility.ma20, visibility.ma50, visibility.ma200, visibility.ema50, visibility.vwap]);
 
   return (
     <div className="relative w-full">
