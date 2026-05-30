@@ -15,10 +15,10 @@
 
 | 브랜치 | 내용 | 상태 |
 |---|---|---|
-| `main` | Phase 1~3 + 터틀 + MA/VWAP + 멀티심볼 (안정) | ✅ |
+| `main` | Phase 1~3 + 터틀 + MA/VWAP + OB + MSS (안정) | ✅ |
 | `v3.0-stable` (태그) | Phase 3 완료 시점 체크포인트 | — |
 
-**현재 작업 브랜치**: `feature/order-block`
+**현재 작업 브랜치**: `main`
 
 ---
 
