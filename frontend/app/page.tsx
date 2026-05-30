@@ -29,6 +29,7 @@ import type {
   PO3,
   StoredTrade,
   Sweep,
+  Swing,
   Trade,
   TurtleDonchianResponse,
 } from '@/lib/types';
@@ -128,6 +129,7 @@ export default function DashboardPage() {
   const [turtleData, setTurtleData] = useState<TurtleDonchianResponse | null>(null);
 
   const [candles, setCandles] = useState<Candle[]>([]);
+  const [swings, setSwings] = useState<Swing[]>([]);
   const [fvgs, setFvgs] = useState<FVG[]>([]);
   const [ifvgs, setIfvgs] = useState<IFVG[]>([]);
   const [bprs, setBprs] = useState<BPR[]>([]);
@@ -293,6 +295,7 @@ export default function DashboardPage() {
       const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
 
       setCandles(candleRes.candles ?? []);
+      setSwings(patternRes.swings ?? []);
       setFvgs(patternRes.fvgs ?? []);
       setIfvgs(patternRes.ifvgs ?? []);
       setBprs(patternRes.bprs ?? []);
@@ -431,6 +434,25 @@ export default function DashboardPage() {
   const toggleVisibility = (key: keyof Visibility) => {
     setVisibility((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+
+  const pdZone = useMemo(() => {
+    if (!candles.length || !swings.length) return null;
+    const currentPrice = candles[candles.length - 1].close;
+    const highs = swings.filter((s) => s.type === 'high');
+    const lows  = swings.filter((s) => s.type === 'low');
+    if (!highs.length || !lows.length) return null;
+    const rangeHigh = Math.max(...highs.map((s) => s.price));
+    const rangeLow  = Math.min(...lows.map((s) => s.price));
+    const range = rangeHigh - rangeLow;
+    if (range <= 0) return null;
+    const pct = ((currentPrice - rangeLow) / range) * 100;
+    const isPremium = pct > 50;
+    const ce = rangeLow + range * 0.5;
+    const ote_low  = rangeLow + range * (1 - 0.786); // 21.4%
+    const ote_high = rangeLow + range * (1 - 0.618); // 38.2%
+    const inOTE = !isPremium && currentPrice >= ote_low && currentPrice <= ote_high;
+    return { pct, isPremium, ce, ote_low, ote_high, inOTE, rangeHigh, rangeLow };
+  }, [candles, swings]);
 
   const maDistances = useMemo(() => {
     if (candles.length === 0) return null;
@@ -662,6 +684,33 @@ export default function DashboardPage() {
       {/* Status */}
       {stats && <p className="mb-2 text-xs text-gray-400 font-mono">{stats}</p>}
       {errorMsg && <p className="mb-2 text-xs text-red-400 font-mono">Error: {errorMsg}</p>}
+
+      {/* Premium/Discount Zone panel */}
+      {pdZone && (
+        <div className="flex flex-wrap items-center gap-3 mb-2">
+          <span
+            className="text-xs font-bold px-2 py-0.5 rounded"
+            style={{ background: pdZone.isPremium ? 'rgba(239,68,68,0.2)' : 'rgba(34,197,94,0.2)',
+                     color: pdZone.isPremium ? '#ef4444' : '#22c55e' }}
+          >
+            {pdZone.isPremium ? 'PREMIUM' : 'DISCOUNT'}
+          </span>
+          <span className="text-xs font-mono text-gray-300">
+            {pdZone.pct.toFixed(1)}% of range
+          </span>
+          <span className="text-xs text-gray-500">
+            CE: {pdZone.ce.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+          </span>
+          <span className="text-xs text-gray-500">
+            OTE: {pdZone.ote_low.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+            {' ~ '}
+            {pdZone.ote_high.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+          </span>
+          {pdZone.inOTE && (
+            <span className="text-xs font-bold text-yellow-400 animate-pulse">⭐ IN OTE</span>
+          )}
+        </div>
+      )}
 
       {/* MA distance panel */}
       {maDistances && (
