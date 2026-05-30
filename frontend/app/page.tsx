@@ -257,13 +257,8 @@ export default function DashboardPage() {
     try {
       const range = await fetchCandleRange(sym, interval);
       if (range) {
-        const s = range.start.slice(0, 10);
-        const e = range.end.slice(0, 10);
-        setStartDate(s);
-        setEndDate(e);
-        await loadChart(sym, interval, `${s}T00:00:00Z`, `${e}T23:59:59Z`);
-      } else {
-        setStats('이 심볼 데이터 없음 — Ingest Data 후 자동 로드');
+        setStartDate(range.start.slice(0, 10));
+        setEndDate(range.end.slice(0, 10));
       }
     } catch {
       // no data yet — user can ingest
@@ -276,16 +271,11 @@ export default function DashboardPage() {
     try {
       const range = await fetchCandleRange(symbol, newInterval);
       if (range) {
-        const s = range.start.slice(0, 10);
-        const e = range.end.slice(0, 10);
-        setStartDate(s);
-        setEndDate(e);
-        await loadChart(symbol, newInterval, `${s}T00:00:00Z`, `${e}T23:59:59Z`);
-      } else {
-        setStats('이 인터벌 데이터 없음 — Ingest Data 후 Load Chart');
+        setStartDate(range.start.slice(0, 10));
+        setEndDate(range.end.slice(0, 10));
       }
     } catch {
-      // silently ignore
+      // silently ignore — user can set dates manually
     }
   };
 
