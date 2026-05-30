@@ -7,7 +7,7 @@
 
 ## 프로젝트 한 줄 요약
 
-**개인용 ICT/SMC + 터틀 트레이딩 웹 대시보드** — Binance Futures BTCUSDT 과거 데이터에서 ICT 패턴(FVG, BPR, Sweep 등)과 터틀 트레이딩(도나치안 채널)을 차트에 표시하고, BPR 진입 룰 백테스트 + 매매 일지 + 텔레그램 알림을 제공합니다.
+**개인용 ICT/SMC + 터틀 트레이딩 웹 대시보드** — Binance Futures 과거 데이터에서 ICT 패턴(FVG, BPR, Sweep 등)과 터틀 트레이딩(도나치안 채널)을 차트에 표시하고, BPR 진입 룰 백테스트 + 매매 일지 + 텔레그램 알림을 제공합니다. 멀티 심볼 지원.
 
 ---
 
@@ -15,11 +15,10 @@
 
 | 브랜치 | 내용 | 상태 |
 |---|---|---|
-| `main` | Phase 1~3 전체 완료 (안정) | ✅ |
-| `feature/turtle-trading` | 터틀 도나치안 채널 오버레이 추가 | ✅ 진행 중 |
+| `main` | Phase 1~3 + 터틀 + MA/VWAP + 멀티심볼 (안정) | ✅ |
 | `v3.0-stable` (태그) | Phase 3 완료 시점 체크포인트 | — |
 
-**현재 작업 브랜치**: `feature/turtle-trading`
+**현재 작업 브랜치**: `main`
 
 ---
 
@@ -56,7 +55,7 @@
 | 3 | 매매 일지 UI (JournalForm / Table / Detail) | ✅ |
 | 4 | 통계 대시보드 (요일·시간대·월별 승률, 실전 vs 백테스트) | ✅ |
 
-### 터틀 트레이딩 추가 (`feature/turtle-trading`)
+### 터틀 트레이딩 추가
 
 | 내용 | 상태 |
 |---|---|
@@ -64,6 +63,20 @@
 | 터틀 진입/청산 신호 마커 | ✅ |
 | `GET /api/turtle/donchian` 엔드포인트 | ✅ |
 | Visibility 토글 (Turtle S1 초록 / Turtle S2 파랑) | ✅ |
+
+### 차트 인디케이터 추가 (MA/VWAP)
+
+| 내용 | 상태 |
+|---|---|
+| SMA 20/50/200 오버레이 (주황/파랑/빨강) | ✅ |
+| EMA 50 오버레이 (보라 점선) | ✅ |
+| VWAP 일별 오버레이 (흰색, UTC 자정 리셋) | ✅ |
+| MA 골든크로스/데스크로스 마커 (20×50, 50×200) | ✅ |
+| 크로스헤어 툴팁에 MA/EMA/VWAP 값 표시 | ✅ |
+| 우측 가격축 MA 레이블 (`lastValueVisible`) | ✅ |
+| MA 이격률 패널 (현재가 대비 % 편차) | ✅ |
+| 멀티 심볼 지원 (datalist 자동완성 + 임의 입력) | ✅ |
+| 중복/역순 캔들 타임스탬프 방어 (`dedup` + sort) | ✅ |
 
 ---
 
@@ -121,6 +134,10 @@
 - `CandleChart.tsx` — Donchian LineSeries 4개 + 신호 마커
 - `lib/types.ts` — `DonchianPoint`, `TurtleSignal`, `TurtleDonchianResponse` 타입
 
+**MA/VWAP/멀티심볼 신규**
+- `CandleChart.tsx` — SMA20/50/200, EMA50, VWAP LineSeries + dedup/sort 방어로직
+- `app/page.tsx` — 심볼 인풋(datalist), MA 이격률 패널(`useMemo`), Visibility 확장
+
 ### Tests
 - **총 153개 통과** (test_fvg, test_bpr, test_liquidity, test_backtest, test_mtf, test_checklist, test_po3, test_journal × 22개, test_telegram × 10개)
 
@@ -177,9 +194,13 @@
 
 ### 차트 관련
 - **KST 표시**: `toUTC(iso)` = UTC 타임스탬프 + 9h 오프셋 → 차트 시간축 KST 표시
-- **OHLC 툴팁**: `chart.subscribeCrosshairMove()` → 좌상단 O/H/L/C 표시
+- **OHLC 툴팁**: `chart.subscribeCrosshairMove()` → 좌상단 O/H/L/C + MA/EMA/VWAP 값 표시
 - **auto-scroll 조건**: `lr.to >= candles.length - 3` 일 때만 `scrollToRealTime()` 호출
 - **날짜 자동 세팅**: 마운트 시 `fetchCandleRange()` 호출 → 실제 데이터 범위로 자동 갱신
+- **MA/EMA/VWAP**: MA effect 내 `dedup(sort+중복제거)` 필수 — Parquet 데이터에 역순/중복 타임스탬프 존재 가능
+- **VWAP 리셋**: `open_time.slice(0,10)` UTC 날짜 기준 일별 리셋
+- **MA 이격률**: `useMemo` — candles/visibility 변경 시만 재계산, 마지막 캔들 기준
+- **멀티 심볼**: symbol 변경 시 candles/patterns/backtest/checklist 전체 클리어 후 range 재조회
 
 ### 터틀 트레이딩
 - **System 1**: 20일 고점 진입 / 10일 저점 청산
