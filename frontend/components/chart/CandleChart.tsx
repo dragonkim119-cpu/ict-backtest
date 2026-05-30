@@ -562,6 +562,7 @@ export default function CandleChart({
     type LP = { time: ReturnType<typeof toUTC>; value: number };
     // lightweight-charts requires strictly ascending unique timestamps
     const dedup = (arr: LP[]): LP[] => {
+      arr.sort((a, b) => (a.time as number) - (b.time as number));
       const seen = new Set<number>();
       return arr.filter(({ time }) => {
         const t = time as number;
