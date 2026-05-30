@@ -102,6 +102,13 @@
 
 **추천 설정**: BPR+OB + Req.Sweep (기댓값/PF 최고, 거래 빈도 합리적)
 
+### 추가 기능 (main 병합 완료)
+
+| 내용 | 상태 |
+|---|---|
+| Premium/Discount Zone 패널 (OTE 강조 포함) | ✅ |
+| 수수료/슬리피지 파라미터 (Fee%, Slip% 입력) | ✅ |
+
 ---
 
 ## 구현 완료 파일 목록
@@ -239,6 +246,10 @@
 - **멀티 심볼**: symbol 변경 시 candles/patterns/backtest/checklist 전체 클리어 후 range 재조회
 - **거래량 히스토그램**: `HistogramSeries` + `priceScaleId: 'volume'` + `scaleMargins: { top: 0.8, bottom: 0 }`. Volume ON 시 캔들 right scale에 `{ top: 0, bottom: 0.2 }` 적용해 겹침 방지
 - **Y축 자동 스케일**: 차트 우하단 `A` 버튼 → `priceScale('right').applyOptions({ autoScale: true })`
+- **Premium/Discount Zone**: swings 상태로 저장 → `useMemo`로 rangeHigh/Low, pct, CE, OTE 계산. OTE = 61.8%~78.6% Fibonacci retracement into discount
+- **수수료/슬리피지**: `fee_pct`, `slippage_pct` (fraction). 슬리피지 → effective_entry 조정, `fee_r = 2×fee×entry/risk` → net pnl_r에서 차감
+- **Order Block**: 변위(ATR×1.5 or FVG 생성) 직전 마지막 반대방향 캔들. ob_index+type 기준 dedup
+- **BOS/CHoCH**: close 기준 swing 돌파 감지. 추세 방향 동일 → BOS, 반대 → CHoCH
 
 ### 터틀 트레이딩
 - **System 1**: 20일 고점 진입 / 10일 저점 청산
