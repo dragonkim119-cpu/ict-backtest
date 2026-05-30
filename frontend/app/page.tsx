@@ -257,8 +257,13 @@ export default function DashboardPage() {
     try {
       const range = await fetchCandleRange(sym, interval);
       if (range) {
-        setStartDate(range.start.slice(0, 10));
-        setEndDate(range.end.slice(0, 10));
+        const s = range.start.slice(0, 10);
+        const e = range.end.slice(0, 10);
+        setStartDate(s);
+        setEndDate(e);
+        await loadChart(sym, interval, `${s}T00:00:00Z`, `${e}T23:59:59Z`);
+      } else {
+        setStats('이 심볼 데이터 없음 — Ingest Data 후 자동 로드');
       }
     } catch {
       // no data yet — user can ingest
@@ -267,31 +272,33 @@ export default function DashboardPage() {
 
   const handleIntervalChange = async (newInterval: string) => {
     setInterval(newInterval);
-    setCandles([]); // clear stale series so live tick path isn't triggered before reload
+    setCandles([]);
     try {
       const range = await fetchCandleRange(symbol, newInterval);
       if (range) {
-        setStartDate(range.start.slice(0, 10));
-        setEndDate(range.end.slice(0, 10));
+        const s = range.start.slice(0, 10);
+        const e = range.end.slice(0, 10);
+        setStartDate(s);
+        setEndDate(e);
+        await loadChart(symbol, newInterval, `${s}T00:00:00Z`, `${e}T23:59:59Z`);
+      } else {
+        setStats('이 인터벌 데이터 없음 — Ingest Data 후 Load Chart');
       }
     } catch {
-      // silently ignore — user can set dates manually
+      // silently ignore
     }
   };
 
-  const handleLoad = async () => {
+  const loadChart = async (sym: string, intv: string, start?: string, end?: string) => {
     setStatus('loading');
     setErrorMsg('');
     try {
-      const start = startDate ? `${startDate}T00:00:00Z` : undefined;
-      const end = endDate ? `${endDate}T23:59:59Z` : undefined;
-
       const t0 = performance.now();
       const turtleNeeded = visibility.turtle_s1 || visibility.turtle_s2;
       const [candleRes, patternRes, turtleRes] = await Promise.all([
-        fetchCandles(symbol, interval, start, end),
-        fetchPatterns(symbol, interval, start, end),
-        turtleNeeded ? fetchTurtleDonchian(symbol, interval, start, end) : Promise.resolve(null),
+        fetchCandles(sym, intv, start, end),
+        fetchPatterns(sym, intv, start, end),
+        turtleNeeded ? fetchTurtleDonchian(sym, intv, start, end) : Promise.resolve(null),
       ]);
       setTurtleData(turtleRes);
       const elapsed = ((performance.now() - t0) / 1000).toFixed(2);
@@ -319,6 +326,12 @@ export default function DashboardPage() {
       setErrorMsg(parseErrorMsg(e));
       setStatus('error');
     }
+  };
+
+  const handleLoad = () => {
+    const start = startDate ? `${startDate}T00:00:00Z` : undefined;
+    const end = endDate ? `${endDate}T23:59:59Z` : undefined;
+    return loadChart(symbol, interval, start, end);
   };
 
   const handleBacktest = async () => {
