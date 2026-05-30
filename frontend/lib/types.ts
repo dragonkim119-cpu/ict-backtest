@@ -228,6 +228,24 @@ export type JournalCompareResult = {
   trades: StoredTrade[] | null;
 };
 
+export type DonchianPoint = { time: string; value: number };
+
+export type TurtleSignal = {
+  time: string;
+  system: 1 | 2;
+  type: 'entry_long' | 'entry_short' | 'exit_long' | 'exit_short';
+};
+
+export type TurtleDonchianResponse = {
+  symbol: string;
+  interval: string;
+  s1_upper: DonchianPoint[];
+  s1_lower: DonchianPoint[];
+  s2_upper: DonchianPoint[];
+  s2_lower: DonchianPoint[];
+  signals: TurtleSignal[];
+};
+
 export type WeekdayStat = { day: string; total: number; wins: number; win_rate: number };
 export type HourStat = { hour: number; total: number; wins: number; win_rate: number };
 export type MonthStat = { month: string; total: number; wins: number; pnl_r: number };

@@ -12,6 +12,7 @@ import type {
   JournalVsBacktest,
   PatternsResponse,
   RunDetailResponse,
+  TurtleDonchianResponse,
 } from './types';
 
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
@@ -156,6 +157,19 @@ export async function deleteJournalEntry(id: number): Promise<void> {
 
 export async function compareJournalEntry(id: number): Promise<JournalCompareResult> {
   const res = await fetch(`${BASE}/api/journal/${id}/compare`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchTurtleDonchian(
+  symbol: string,
+  interval: string,
+  start?: string,
+  end?: string,
+): Promise<TurtleDonchianResponse> {
+  const res = await fetch(
+    `${BASE}/api/turtle/donchian${qs({ symbol, interval, start, end })}`,
+  );
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
