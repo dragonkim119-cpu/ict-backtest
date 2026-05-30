@@ -250,6 +250,15 @@
 - **수수료/슬리피지**: `fee_pct`, `slippage_pct` (fraction). 슬리피지 → effective_entry 조정, `fee_r = 2×fee×entry/risk` → net pnl_r에서 차감
 - **Order Block**: 변위(ATR×1.5 or FVG 생성) 직전 마지막 반대방향 캔들. ob_index+type 기준 dedup
 - **BOS/CHoCH**: close 기준 swing 돌파 감지. 추세 방향 동일 → BOS, 반대 → CHoCH
+- **MA 인크리멘털**: live tick 시 `setData(N)` 대신 `update(1)` 호출. SMA live = O(period), 렌더링 비용 99% 감소
+
+## 현실적 한계 (냉정 평가)
+
+- **통계 신뢰성**: 1년 BTCUSDT 데이터, 최대 300거래 수준 — 유의미한 통계는 500+ 거래 필요
+- **전략 단순화**: TP 고정 1:3, 피라미딩/트레일링 스탑/포지션 사이징 없음
+- **데이터 편향**: Binance 단일 거래소, 최근 1년 (2020~2022 시장 상황 미포함)
+- **실행 불가**: 백테스트 신호 → 실제 주문 자동화 없음 (수동 보조 도구)
+- **강점**: ICT 패턴 전체 파이프라인 자동화 — 이 영역은 상용 도구 대비 우위
 
 ### 터틀 트레이딩
 - **System 1**: 20일 고점 진입 / 10일 저점 청산
