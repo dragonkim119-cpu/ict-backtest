@@ -27,7 +27,7 @@ def detect_mss(candles: pd.DataFrame, swings: list[Swing]) -> list[MSSEvent]:
     hi = 0
     li = 0
     closes = candles["close"].values
-    times  = candles["open_time"].values
+    times  = list(candles["open_time"])   # pd.Timestamp list — Pydantic datetime compatible
 
     for i in range(len(candles)):
         # Advance pointers to include only swings confirmed before candle i

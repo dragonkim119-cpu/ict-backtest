@@ -23,12 +23,12 @@ def detect_order_blocks(
     """
     fvg_indices = {f.end_index for f in fvgs}
 
-    # Extract numpy arrays once — avoids repeated pandas iloc overhead
+    # Extract arrays once — avoids repeated pandas iloc overhead
     opens_  = candles["open"].values
     highs_  = candles["high"].values
     lows_   = candles["low"].values
     closes_ = candles["close"].values
-    times_  = candles["open_time"].values
+    times_  = list(candles["open_time"])   # pd.Timestamp list — Pydantic datetime compatible
     atr_    = atr.values
 
     obs: list[OrderBlock] = []
@@ -101,7 +101,7 @@ def _update_ob_states(
     highs_: np.ndarray,
     lows_: np.ndarray,
     closes_: np.ndarray,
-    times_: np.ndarray,
+    times_: list,
 ) -> None:
     n = len(closes_)
     for ob in obs:
