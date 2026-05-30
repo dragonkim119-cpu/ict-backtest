@@ -76,6 +76,7 @@ export default function CandleChart({
   liveMode,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const primitivesRef = useRef<AnyPrimitive[]>([]);
@@ -141,6 +142,30 @@ export default function CandleChart({
     s1LowerRef.current = chart.addSeries(LineSeries, { ...lineOpts, color: 'rgba(34,197,94,0.5)', lineStyle: LineStyle.Dotted });
     s2UpperRef.current = chart.addSeries(LineSeries, { ...lineOpts, color: 'rgba(96,165,250,0.7)', lineStyle: LineStyle.Dashed });
     s2LowerRef.current = chart.addSeries(LineSeries, { ...lineOpts, color: 'rgba(96,165,250,0.5)', lineStyle: LineStyle.Dotted });
+
+    // OHLC crosshair tooltip
+    chart.subscribeCrosshairMove((param) => {
+      const tooltip = tooltipRef.current;
+      if (!tooltip) return;
+      if (!param.time || !param.point) {
+        tooltip.style.display = 'none';
+        return;
+      }
+      const bar = param.seriesData.get(series) as
+        | { open: number; high: number; low: number; close: number } | undefined;
+      if (!bar) {
+        tooltip.style.display = 'none';
+        return;
+      }
+      const up = bar.close >= bar.open;
+      const color = up ? '#26a69a' : '#ef5350';
+      const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      tooltip.innerHTML =
+        `<span style="color:${color};font-weight:700">` +
+        `O <b>${fmt(bar.open)}</b>  H <b>${fmt(bar.high)}</b>  L <b>${fmt(bar.low)}</b>  C <b>${fmt(bar.close)}</b>` +
+        `</span>`;
+      tooltip.style.display = 'block';
+    });
 
     const observer = new ResizeObserver(() => {
       if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
@@ -448,10 +473,29 @@ export default function CandleChart({
   }, [turtleData, visibility.turtle_s1, visibility.turtle_s2]);
 
   return (
-    <div
-      ref={containerRef}
-      className="w-full rounded-lg overflow-hidden border border-[#2a2e39]"
-      style={{ height: 600 }}
-    />
+    <div className="relative w-full">
+      <div
+        ref={tooltipRef}
+        style={{
+          display: 'none',
+          position: 'absolute',
+          top: 8,
+          left: 12,
+          zIndex: 10,
+          fontSize: 12,
+          fontFamily: 'monospace',
+          background: 'rgba(19,23,34,0.85)',
+          padding: '3px 8px',
+          borderRadius: 4,
+          pointerEvents: 'none',
+          whiteSpace: 'nowrap',
+        }}
+      />
+      <div
+        ref={containerRef}
+        className="w-full rounded-lg overflow-hidden border border-[#2a2e39]"
+        style={{ height: 600 }}
+      />
+    </div>
   );
 }
