@@ -97,7 +97,8 @@ async def _fetch_rss(url: str, source: str) -> list[NewsItem]:
         async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
             resp = await client.get(url, headers={"User-Agent": "ICT-Backtest/1.0"})
             resp.raise_for_status()
-        root = ET.fromstring(resp.text)
+        # Use raw bytes so ET respects the XML encoding declaration (avoids mojibake)
+        root = ET.fromstring(resp.content)
     except Exception as exc:
         logger.warning("RSS fetch failed (%s): %s", source, exc)
         return []
@@ -161,10 +162,17 @@ async def fetch_crypto_news() -> list[NewsItem]:
         rss_items = await _fetch_rss(rss_url, source)
         items.extend(rss_items)
 
-    items.sort(key=lambda n: n.published_at, reverse=True)
-    items = items[:30]
-    _cache_set("crypto_news", items)
-    return items
+    # Dedup by URL, preserve order (first occurrence wins)
+    seen_urls: set[str] = set()
+    deduped: list[NewsItem] = []
+    for item in items:
+        if item.url and item.url not in seen_urls:
+            seen_urls.add(item.url)
+            deduped.append(item)
+    deduped.sort(key=lambda n: n.published_at, reverse=True)
+    deduped = deduped[:30]
+    _cache_set("crypto_news", deduped)
+    return deduped
 
 
 async def fetch_macro_news() -> list[NewsItem]:
