@@ -484,7 +484,7 @@ export default function DashboardPage() {
       {activeTab === 'journal' && <JournalTab />}
       {activeTab === 'macro' && <MacroTab />}
 
-      {activeTab === 'chart' && (<>
+      <div style={{ display: activeTab === 'chart' ? 'block' : 'none' }}>
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3 mb-3">
         <datalist id="symbol-list">
@@ -724,7 +724,7 @@ export default function DashboardPage() {
         <span className="text-red-500">— BSL</span>
         <span>▲ Bull Sweep &nbsp; ▼ Bear Sweep</span>
       </div>
-      </>)}
+      </div>
     </main>
   );
 }

@@ -215,7 +215,8 @@ export default function CandleChart({
     });
 
     const observer = new ResizeObserver(() => {
-      if (containerRef.current) chart.applyOptions({ width: containerRef.current.clientWidth });
+      const w = containerRef.current?.clientWidth ?? 0;
+      if (w > 0) chart.applyOptions({ width: w });
     });
     observer.observe(containerRef.current);
 
