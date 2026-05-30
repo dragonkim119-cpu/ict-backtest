@@ -313,3 +313,40 @@ export type PatternsResponse = {
   killzones: KillZoneSpan[];
   po3s: PO3[];
 };
+
+export type EconomicEvent = {
+  event: string;
+  country: string;
+  date: string;
+  time: string | null;
+  impact: 'high' | 'medium' | 'low' | null;
+  actual: number | null;
+  estimate: number | null;
+  prev: number | null;
+  unit: string | null;
+};
+
+export type NewsItem = {
+  source: string;
+  title: string;
+  url: string;
+  published_at: string;
+  currencies: string[];
+  importance: 'high' | 'medium' | 'low' | null;
+  summary: string | null;
+};
+
+export type MacroCalendarResponse = {
+  events: EconomicEvent[];
+  fetched_at: string;
+};
+
+export type MacroNewsResponse = {
+  items: NewsItem[];
+  fetched_at: string;
+};
+
+export type MacroStatus = {
+  finnhub: boolean;
+  cryptopanic: boolean;
+};

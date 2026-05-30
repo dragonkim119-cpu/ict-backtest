@@ -38,6 +38,7 @@ import RunComparison from '@/components/backtest/RunComparison';
 import RunHistory from '@/components/backtest/RunHistory';
 import TradesTable from '@/components/backtest/TradesTable';
 import JournalTab from '@/components/journal/JournalTab';
+import MacroTab from '@/components/macro/MacroTab';
 
 const CandleChart = dynamic(() => import('@/components/chart/CandleChart'), { ssr: false });
 
@@ -140,7 +141,7 @@ export default function DashboardPage() {
   const [selectedRunIds, setSelectedRunIds] = useState<string[]>([]);
   const [comparisonRuns, setComparisonRuns] = useState<[BacktestRun, BacktestRun] | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'chart' | 'journal'>('chart');
+  const [activeTab, setActiveTab] = useState<'chart' | 'journal' | 'macro'>('chart');
 
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -464,7 +465,7 @@ export default function DashboardPage() {
       <div className="flex items-center gap-4 mb-4">
         <h1 className="text-xl font-bold text-white">ICT Backtest Dashboard</h1>
         <div className="flex gap-1">
-          {(['chart', 'journal'] as const).map((tab) => (
+          {(['chart', 'journal', 'macro'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -474,13 +475,14 @@ export default function DashboardPage() {
                   : 'text-gray-500 hover:text-gray-300'
               }`}
             >
-              {tab === 'chart' ? 'Chart' : 'Journal'}
+              {tab === 'chart' ? 'Chart' : tab === 'journal' ? 'Journal' : 'Macro'}
             </button>
           ))}
         </div>
       </div>
 
       {activeTab === 'journal' && <JournalTab />}
+      {activeTab === 'macro' && <MacroTab />}
 
       {activeTab === 'chart' && (<>
       {/* Controls */}

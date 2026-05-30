@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 from app.api.backtest import router as backtest_router  # noqa: E402
+from app.api.macro import router as macro_router  # noqa: E402
 from app.api.candles import router as candles_router  # noqa: E402
 from app.api.checklist import router as checklist_router  # noqa: E402
 from app.api.ingest import router as ingest_router  # noqa: E402
@@ -35,6 +36,7 @@ app.include_router(checklist_router, prefix="/api")
 app.include_router(journal_router, prefix="/api")
 app.include_router(telegram_router, prefix="/api")
 app.include_router(turtle_router, prefix="/api")
+app.include_router(macro_router, prefix="/api")
 app.include_router(ws_router)
 
 

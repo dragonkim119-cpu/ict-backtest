@@ -10,6 +10,9 @@ import type {
   JournalEntryUpdate,
   JournalStats,
   JournalVsBacktest,
+  MacroCalendarResponse,
+  MacroNewsResponse,
+  MacroStatus,
   PatternsResponse,
   RunDetailResponse,
   TurtleDonchianResponse,
@@ -182,6 +185,24 @@ export async function fetchJournalStats(): Promise<JournalStats> {
 
 export async function fetchJournalVsBacktest(): Promise<JournalVsBacktest> {
   const res = await fetch(`${BASE}/api/journal/compare-backtest`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchMacroCalendar(days = 7): Promise<MacroCalendarResponse> {
+  const res = await fetch(`${BASE}/api/macro/calendar${qs({ days: String(days) })}`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchMacroNews(): Promise<MacroNewsResponse> {
+  const res = await fetch(`${BASE}/api/macro/news`);
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+export async function fetchMacroStatus(): Promise<MacroStatus> {
+  const res = await fetch(`${BASE}/api/macro/status`);
   if (!res.ok) throw new Error(await res.text());
   return res.json();
 }
