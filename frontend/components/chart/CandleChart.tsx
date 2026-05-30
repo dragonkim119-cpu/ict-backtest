@@ -559,15 +559,27 @@ export default function CandleChart({
 
   // Recompute MA series whenever candles or MA visibility changes
   useEffect(() => {
-    const sma = (period: number): { time: ReturnType<typeof toUTC>; value: number }[] => {
-      const result: { time: ReturnType<typeof toUTC>; value: number }[] = [];
+    type LP = { time: ReturnType<typeof toUTC>; value: number };
+    // lightweight-charts requires strictly ascending unique timestamps
+    const dedup = (arr: LP[]): LP[] => {
+      const seen = new Set<number>();
+      return arr.filter(({ time }) => {
+        const t = time as number;
+        if (seen.has(t)) return false;
+        seen.add(t);
+        return true;
+      });
+    };
+
+    const sma = (period: number): LP[] => {
+      const result: LP[] = [];
       let sum = 0;
       for (let i = 0; i < candles.length; i++) {
         sum += candles[i].close;
         if (i >= period) sum -= candles[i - period].close;
         if (i >= period - 1) result.push({ time: toUTC(candles[i].open_time), value: sum / period });
       }
-      return result;
+      return dedup(result);
     };
 
     if (ma20Ref.current) ma20Ref.current.setData(visibility.ma20 && candles.length >= 20 ? sma(20) : []);
@@ -580,21 +592,20 @@ export default function CandleChart({
         let seed = 0;
         for (let i = 0; i < 50; i++) seed += candles[i].close;
         let prev = seed / 50;
-        const emaData: { time: ReturnType<typeof toUTC>; value: number }[] = [
-          { time: toUTC(candles[49].open_time), value: prev },
-        ];
+        const emaData: LP[] = [{ time: toUTC(candles[49].open_time), value: prev }];
         for (let i = 50; i < candles.length; i++) {
           prev = candles[i].close * k + prev * (1 - k);
           emaData.push({ time: toUTC(candles[i].open_time), value: prev });
         }
-        ema50Ref.current.setData(emaData);
+        ema50Ref.current.setData(dedup(emaData));
       } else {
         ema50Ref.current.setData([]);
       }
     }
+
     if (vwapRef.current) {
       if (visibility.vwap && candles.length > 0) {
-        const vwapData: { time: ReturnType<typeof toUTC>; value: number }[] = [];
+        const vwapData: LP[] = [];
         let cumTV = 0;
         let cumVol = 0;
         let currentDay = '';
@@ -606,7 +617,7 @@ export default function CandleChart({
           cumVol += c.volume;
           vwapData.push({ time: toUTC(c.open_time), value: cumTV / cumVol });
         }
-        vwapRef.current.setData(vwapData);
+        vwapRef.current.setData(dedup(vwapData));
       } else {
         vwapRef.current.setData([]);
       }

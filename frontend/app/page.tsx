@@ -92,7 +92,8 @@ const VISIBILITY_LABELS: { key: keyof Visibility; label: string; color: string }
 ];
 
 export default function DashboardPage() {
-  const [symbol] = useState('BTCUSDT');
+  const [symbol, setSymbol] = useState('BTCUSDT');
+  const [symbolInput, setSymbolInput] = useState('BTCUSDT');
   const [interval, setInterval] = useState('1h');
   const [startDate, setStartDate] = useState('2025-06-01');
   const [endDate, setEndDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -222,6 +223,27 @@ export default function DashboardPage() {
   };
 
   // ── Handlers ──────────────────────────────────────────────────
+  const handleSymbolChange = async (raw: string) => {
+    const sym = raw.toUpperCase().trim();
+    if (!sym || sym === symbol) return;
+    setSymbol(sym);
+    setSymbolInput(sym);
+    setCandles([]);
+    setBtTrades([]);
+    setBtMetrics(null);
+    setTurtleData(null);
+    setChecklist(null);
+    try {
+      const range = await fetchCandleRange(sym, interval);
+      if (range) {
+        setStartDate(range.start.slice(0, 10));
+        setEndDate(range.end.slice(0, 10));
+      }
+    } catch {
+      // no data yet — user can ingest
+    }
+  };
+
   const handleIntervalChange = async (newInterval: string) => {
     setInterval(newInterval);
     setCandles([]); // clear stale series so live tick path isn't triggered before reload
@@ -460,9 +482,20 @@ export default function DashboardPage() {
       {activeTab === 'chart' && (<>
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3 mb-3">
-        <span className="px-3 py-1.5 rounded text-white text-sm font-mono bg-[#1e2130]">
-          {symbol}
-        </span>
+        <datalist id="symbol-list">
+          {['BTCUSDT','ETHUSDT','BNBUSDT','SOLUSDT','XRPUSDT','DOGEUSDT','ADAUSDT','AVAXUSDT','LINKUSDT','DOTUSDT'].map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
+        <input
+          list="symbol-list"
+          value={symbolInput}
+          onChange={(e) => setSymbolInput(e.target.value.toUpperCase())}
+          onBlur={(e) => void handleSymbolChange(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') void handleSymbolChange(symbolInput); }}
+          className="px-3 py-1.5 rounded bg-[#1e2130] text-white text-sm font-mono border border-[#2a2e39] w-32 uppercase"
+          placeholder="BTCUSDT"
+        />
 
         <select
           value={interval}
