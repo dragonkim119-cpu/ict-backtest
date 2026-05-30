@@ -348,5 +348,5 @@ export type MacroNewsResponse = {
 
 export type MacroStatus = {
   finnhub: boolean;
-  cryptopanic: boolean;
+  rss: boolean;
 };

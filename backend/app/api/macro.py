@@ -46,5 +46,5 @@ def get_macro_status() -> dict:
     import os
     return {
         "finnhub": bool(os.getenv("FINNHUB_API_KEY")),
-        "cryptopanic": bool(os.getenv("CRYPTOPANIC_API_KEY")),
+        "rss": True,  # CoinDesk + Cointelegraph RSS, no key needed
     }

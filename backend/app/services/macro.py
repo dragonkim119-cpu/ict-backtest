@@ -3,7 +3,9 @@ from __future__ import annotations
 import logging
 import os
 import time
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
+from email.utils import parsedate_to_datetime
 
 import httpx
 
@@ -11,27 +13,25 @@ from app.models.macro import EconomicEvent, NewsItem
 
 logger = logging.getLogger(__name__)
 
-# Simple in-memory cache: key → (fetched_at_unix, data)
 _CACHE: dict[str, tuple[float, object]] = {}
 _CACHE_TTL = 300  # 5 min
 
-# Track already-alerted high-impact events to avoid duplicate Telegram sends
 _ALERTED: set[str] = set()
 
-# Macro-relevant keywords for Finnhub news filtering
 _MACRO_KEYWORDS = [
     "trump", "fed", "federal reserve", "fomc", "tariff", "inflation",
     "recession", "interest rate", "cpi", "nfp", "gdp", "unemployment",
     "geopolit", "sanction", "war", "china", "russia",
 ]
 
+_RSS_SOURCES = [
+    ("https://www.coindesk.com/arc/outboundfeeds/rss/", "CoinDesk"),
+    ("https://cointelegraph.com/rss", "Cointelegraph"),
+]
+
 
 def _finnhub_token() -> str:
     return os.getenv("FINNHUB_API_KEY", "")
-
-
-def _cryptopanic_token() -> str:
-    return os.getenv("CRYPTOPANIC_API_KEY", "")
 
 
 def _cache_get(key: str) -> object | None:
@@ -85,60 +85,84 @@ async def fetch_economic_calendar(days_ahead: int = 7) -> list[EconomicEvent]:
             unit=e.get("unit"),
         ))
 
-    # Keep US events only, sort by date+time
     events = [e for e in events if e.country in ("US", "us", "")]
     events.sort(key=lambda e: (e.date, e.time or ""))
-
     _cache_set(cache_key, events)
     return events
 
 
+async def _fetch_rss(url: str, source: str) -> list[NewsItem]:
+    """Parse RSS feed, return NewsItems. No API key required."""
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            resp = await client.get(url, headers={"User-Agent": "ICT-Backtest/1.0"})
+            resp.raise_for_status()
+        root = ET.fromstring(resp.text)
+    except Exception as exc:
+        logger.warning("RSS fetch failed (%s): %s", source, exc)
+        return []
+
+    items: list[NewsItem] = []
+    for item in root.findall(".//item")[:15]:
+        title = item.findtext("title") or ""
+        link = item.findtext("link") or ""
+        pub_raw = item.findtext("pubDate") or ""
+        try:
+            published = parsedate_to_datetime(pub_raw).isoformat()
+        except Exception:
+            published = pub_raw
+        items.append(NewsItem(
+            source=source,
+            title=title.strip(),
+            url=link.strip(),
+            published_at=published,
+            currencies=["BTC"],
+            importance="medium",
+            summary=None,
+        ))
+    return items
+
+
 async def fetch_crypto_news() -> list[NewsItem]:
+    """Finnhub crypto news + CoinDesk/Cointelegraph RSS. No extra API key needed."""
     cached = _cache_get("crypto_news")
     if cached is not None:
         return cached  # type: ignore[return-value]
 
-    token = _cryptopanic_token()
     items: list[NewsItem] = []
+    token = _finnhub_token()
 
-    if not token:
-        _cache_set("crypto_news", items)
-        return items
+    # Finnhub crypto category
+    if token:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.get(
+                    "https://finnhub.io/api/v1/news",
+                    params={"category": "crypto", "token": token},
+                )
+                if resp.is_success:
+                    for r in resp.json()[:20]:
+                        ts = r.get("datetime", 0)
+                        published = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat() if ts else ""
+                        items.append(NewsItem(
+                            source=r.get("source", "Finnhub"),
+                            title=r.get("headline", ""),
+                            url=r.get("url", ""),
+                            published_at=published,
+                            currencies=["BTC"],
+                            importance="medium",
+                            summary=(r.get("summary") or "")[:200] or None,
+                        ))
+        except Exception as exc:
+            logger.warning("Finnhub crypto news failed: %s", exc)
 
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(
-                "https://cryptopanic.com/api/v1/posts/",
-                params={
-                    "auth_token": token,
-                    "currencies": "BTC",
-                    "public": "true",
-                    "filter": "important",
-                },
-            )
-            if not resp.is_success:
-                _cache_set("crypto_news", items)
-                return items
-            data = resp.json()
-    except Exception as exc:
-        logger.warning("CryptoPanic fetch failed: %s", exc)
-        _cache_set("crypto_news", items)
-        return items
+    # RSS feeds (free, no key)
+    for rss_url, source in _RSS_SOURCES:
+        rss_items = await _fetch_rss(rss_url, source)
+        items.extend(rss_items)
 
-    for r in data.get("results", [])[:25]:
-        votes = r.get("votes", {}) or {}
-        pos = votes.get("positive", 0) or 0
-        importance = "high" if pos >= 10 else "medium" if pos >= 3 else "low"
-        items.append(NewsItem(
-            source="CryptoPanic",
-            title=r.get("title", ""),
-            url=r.get("url", ""),
-            published_at=r.get("published_at", ""),
-            currencies=["BTC"],
-            importance=importance,
-            summary=None,
-        ))
-
+    items.sort(key=lambda n: n.published_at, reverse=True)
+    items = items[:30]
     _cache_set("crypto_news", items)
     return items
 
@@ -166,7 +190,7 @@ async def fetch_macro_news() -> list[NewsItem]:
                 return items
             data = resp.json()
     except Exception as exc:
-        logger.warning("Finnhub news fetch failed: %s", exc)
+        logger.warning("Finnhub macro news failed: %s", exc)
         _cache_set("macro_news", items)
         return items
 
@@ -194,7 +218,6 @@ async def fetch_macro_news() -> list[NewsItem]:
 
 
 async def check_and_alert_events(events: list[EconomicEvent]) -> None:
-    """Send Telegram alert for high-impact US events within the next 2 hours."""
     from app.services.telegram import is_configured, send_message
 
     if not is_configured():

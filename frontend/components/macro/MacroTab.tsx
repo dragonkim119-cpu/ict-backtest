@@ -101,8 +101,8 @@ export default function MacroTab() {
             <span className={`text-xs px-2 py-0.5 rounded ${status.finnhub ? 'bg-green-900 text-green-400' : 'bg-gray-800 text-gray-500'}`}>
               Finnhub {status.finnhub ? '✓' : '✗'}
             </span>
-            <span className={`text-xs px-2 py-0.5 rounded ${status.cryptopanic ? 'bg-green-900 text-green-400' : 'bg-gray-800 text-gray-500'}`}>
-              CryptoPanic {status.cryptopanic ? '✓' : '✗'}
+            <span className="text-xs px-2 py-0.5 rounded bg-green-900 text-green-400">
+              RSS ✓
             </span>
           </div>
         )}
