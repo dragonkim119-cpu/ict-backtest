@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 import pandas as pd
 
 from app.models.patterns import FVG, OrderBlock
@@ -18,16 +19,23 @@ def detect_order_blocks(
 ) -> list[OrderBlock]:
     """Detect Order Blocks per 02_PATTERNS.md section 9.
 
-    An OB is the last opposing candle immediately before a significant
-    displacement (range >= ATR * threshold OR creates an FVG).
+    Uses numpy arrays for fast inner-loop access instead of pandas iloc.
     """
     fvg_indices = {f.end_index for f in fvgs}
+
+    # Extract numpy arrays once — avoids repeated pandas iloc overhead
+    opens_  = candles["open"].values
+    highs_  = candles["high"].values
+    lows_   = candles["low"].values
+    closes_ = candles["close"].values
+    times_  = candles["open_time"].values
+    atr_    = atr.values
+
     obs: list[OrderBlock] = []
 
     for i in range(lookback + 1, len(candles)):
-        c = candles.iloc[i]
-        atr_val = float(atr.iloc[i])
-        candle_range = c["high"] - c["low"]
+        atr_val      = float(atr_[i])
+        candle_range = highs_[i] - lows_[i]
 
         is_displacement = (
             candle_range >= atr_val * displacement_atr_min
@@ -36,52 +44,46 @@ def detect_order_blocks(
         if not is_displacement:
             continue
 
-        is_bull_impulse = c["close"] > c["open"]
-        is_bear_impulse = c["close"] < c["open"]
+        is_bull = closes_[i] > opens_[i]
+        is_bear = closes_[i] < opens_[i]
 
-        if is_bull_impulse:
-            # Find last bearish candle within lookback
+        if is_bull:
             ob_j = None
             for j in range(i - 1, max(i - lookback - 1, -1), -1):
-                prev = candles.iloc[j]
-                if prev["close"] < prev["open"]:
+                if closes_[j] < opens_[j]:   # bearish candle
                     ob_j = j
                     break
             if ob_j is None:
                 continue
-            oc = candles.iloc[ob_j]
             obs.append(OrderBlock(
                 type="bull",
-                top=float(oc["open"]),
-                bottom=float(oc["close"]),
+                top=float(opens_[ob_j]),
+                bottom=float(closes_[ob_j]),
                 ob_index=ob_j,
-                ob_time=oc["open_time"],
+                ob_time=times_[ob_j],
                 created_index=i,
-                created_time=c["open_time"],
+                created_time=times_[i],
             ))
 
-        elif is_bear_impulse:
+        elif is_bear:
             ob_j = None
             for j in range(i - 1, max(i - lookback - 1, -1), -1):
-                prev = candles.iloc[j]
-                if prev["close"] > prev["open"]:
+                if closes_[j] > opens_[j]:   # bullish candle
                     ob_j = j
                     break
             if ob_j is None:
                 continue
-            oc = candles.iloc[ob_j]
             obs.append(OrderBlock(
                 type="bear",
-                top=float(oc["close"]),
-                bottom=float(oc["open"]),
+                top=float(closes_[ob_j]),
+                bottom=float(opens_[ob_j]),
                 ob_index=ob_j,
-                ob_time=oc["open_time"],
+                ob_time=times_[ob_j],
                 created_index=i,
-                created_time=c["open_time"],
+                created_time=times_[i],
             ))
 
-    # Dedup: same OB candle may be referenced by multiple displacement candles.
-    # Keep earliest created_index per (ob_index, type).
+    # Dedup by (ob_index, type) — keep earliest created_index
     seen: dict[tuple[int, str], OrderBlock] = {}
     for ob in obs:
         key = (ob.ob_index, ob.type)
@@ -90,27 +92,33 @@ def detect_order_blocks(
     obs = list(seen.values())
     obs.sort(key=lambda o: o.ob_index)
 
-    _update_ob_states(obs, candles)
+    _update_ob_states(obs, highs_, lows_, closes_, times_)
     return obs
 
 
-def _update_ob_states(obs: list[OrderBlock], candles: pd.DataFrame) -> None:
+def _update_ob_states(
+    obs: list[OrderBlock],
+    highs_: np.ndarray,
+    lows_: np.ndarray,
+    closes_: np.ndarray,
+    times_: np.ndarray,
+) -> None:
+    n = len(closes_)
     for ob in obs:
-        for i in range(ob.created_index + 1, len(candles)):
-            c = candles.iloc[i]
+        for i in range(ob.created_index + 1, n):
             if ob.type == "bull":
-                if not ob.mitigated and c["low"] <= ob.top:
+                if not ob.mitigated and lows_[i] <= ob.top:
                     ob.mitigated = True
-                    ob.mitigated_time = c["open_time"]
-                if not ob.invalidated and c["close"] < ob.bottom:
+                    ob.mitigated_time = times_[i]
+                if not ob.invalidated and closes_[i] < ob.bottom:
                     ob.invalidated = True
-                    ob.invalidated_time = c["open_time"]
+                    ob.invalidated_time = times_[i]
                     break
             else:
-                if not ob.mitigated and c["high"] >= ob.bottom:
+                if not ob.mitigated and highs_[i] >= ob.bottom:
                     ob.mitigated = True
-                    ob.mitigated_time = c["open_time"]
-                if not ob.invalidated and c["close"] > ob.top:
+                    ob.mitigated_time = times_[i]
+                if not ob.invalidated and closes_[i] > ob.top:
                     ob.invalidated = True
-                    ob.invalidated_time = c["open_time"]
+                    ob.invalidated_time = times_[i]
                     break
