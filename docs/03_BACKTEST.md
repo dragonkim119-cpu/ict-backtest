@@ -230,7 +230,69 @@ def compute_max_drawdown(trades: list[Trade]) -> float:
 
 ---
 
-## 8. 재현성
+## 8. Order Block 진입 룰
+
+### BPR 룰과의 공통점 / 차이점
+
+| 항목 | BPR | Order Block |
+|---|---|---|
+| 진입 구간 | 두 FVG 겹침 영역 | 변위 직전 캔들 바디 |
+| 트리거 | OB 범위 안에서 close | OB 범위 안에서 close |
+| 진입 | 다음 캔들 open | 다음 캔들 open |
+| SL | 직전 swing low/high | OB 하단 아래 (롱) / OB 상단 위 (숏) |
+| TP | 1:3 RR | 1:3 RR (동일) |
+| 무효화 | close가 BPR 반대로 | close가 OB 바디 반대로 |
+
+### OB 전용 SL 계산
+
+```python
+def calc_ob_stop_loss(entry: EntrySignal, ob: OrderBlock) -> float:
+    if entry.direction == "long":
+        sl = ob.bottom * (1 - 0.0005)   # OB 바디 하단 아래 0.05% 버퍼
+    else:
+        sl = ob.top * (1 + 0.0005)      # OB 바디 상단 위 0.05% 버퍼
+    # SL 거리 3% 초과 시 스킵
+    dist_pct = abs(entry.entry_price - sl) / entry.entry_price
+    if dist_pct > 0.03:
+        return None
+    return sl
+```
+
+### 의사 코드
+
+```python
+def find_ob_entry_signal(ob: OrderBlock, candles: pd.DataFrame) -> EntrySignal | None:
+    for i in range(ob.created_index + 1, len(candles) - 1):
+        c = candles.iloc[i]
+        # OB 범위 안에서 close?
+        if ob.bottom <= c["close"] <= ob.top:
+            next_candle = candles.iloc[i + 1]
+            return EntrySignal(
+                bpr=None,           # OB 진입은 bpr=None
+                ob=ob,              # OB 참조 추가
+                trigger_candle_index=i,
+                trigger_candle_time=c["open_time"],
+                entry_index=i + 1,
+                entry_time=next_candle["open_time"],
+                entry_price=next_candle["open"],
+                direction="long" if ob.type == "bull" else "short",
+            )
+        # 무효화
+        if ob.type == "bull" and c["close"] < ob.bottom:
+            return None
+        if ob.type == "bear" and c["close"] > ob.top:
+            return None
+    return None
+```
+
+### 필터 옵션 (BPR과 동일)
+- `kill_zone_only`: OB 변위 발생 시점이 Kill Zone 이내일 때만
+- `require_sweep`: OB 형성 직전 Sweep 필요
+- BPR+OB 동시 활성 시: 두 진입 신호를 **합산**해 백테스트 (중복 진입 방지: 같은 캔들에서 하나만)
+
+---
+
+## 10. 재현성
 
 - 모든 백테스트 결과는 `(symbol, interval, start, end, params_hash)` 로 식별
 - SQLite `backtest_runs` 테이블에 결과 + params snapshot 저장
