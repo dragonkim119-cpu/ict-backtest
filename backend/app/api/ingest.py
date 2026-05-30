@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.data.ingest import ingest
 
@@ -11,7 +11,7 @@ router = APIRouter()
 class IngestRequest(BaseModel):
     symbol: str = "BTCUSDT"
     interval: str = "1h"
-    days: int = 365
+    days: int = Field(365, ge=1, le=3650)
 
 
 class IngestResponse(BaseModel):

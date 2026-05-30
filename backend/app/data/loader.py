@@ -31,7 +31,11 @@ def _candles_dir() -> Path:
 
 
 def _parquet_path(symbol: str, interval: str) -> Path:
-    return _candles_dir() / f"{symbol}_{interval}.parquet"
+    base = _candles_dir().resolve()
+    path = (base / f"{symbol}_{interval}.parquet").resolve()
+    if not str(path).startswith(str(base)):
+        raise ValueError(f"Invalid symbol/interval: path traversal detected")
+    return path
 
 
 def save_candles(df: pd.DataFrame, symbol: str, interval: str) -> int:
