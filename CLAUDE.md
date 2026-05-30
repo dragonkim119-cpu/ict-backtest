@@ -77,6 +77,8 @@
 | MA 이격률 패널 (현재가 대비 % 편차) | ✅ |
 | 멀티 심볼 지원 (datalist 자동완성 + 임의 입력) | ✅ |
 | 중복/역순 캔들 타임스탬프 방어 (`dedup` + sort) | ✅ |
+| 거래량 히스토그램 오버레이 (하단 20%, 상승 초록/하락 빨강) | ✅ |
+| Y축 자동 스케일 버튼 (차트 우하단 `A`) | ✅ |
 
 ---
 
@@ -201,6 +203,8 @@
 - **VWAP 리셋**: `open_time.slice(0,10)` UTC 날짜 기준 일별 리셋
 - **MA 이격률**: `useMemo` — candles/visibility 변경 시만 재계산, 마지막 캔들 기준
 - **멀티 심볼**: symbol 변경 시 candles/patterns/backtest/checklist 전체 클리어 후 range 재조회
+- **거래량 히스토그램**: `HistogramSeries` + `priceScaleId: 'volume'` + `scaleMargins: { top: 0.8, bottom: 0 }`. Volume ON 시 캔들 right scale에 `{ top: 0, bottom: 0.2 }` 적용해 겹침 방지
+- **Y축 자동 스케일**: 차트 우하단 `A` 버튼 → `priceScale('right').applyOptions({ autoScale: true })`
 
 ### 터틀 트레이딩
 - **System 1**: 20일 고점 진입 / 10일 저점 청산
